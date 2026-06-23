@@ -91,18 +91,23 @@ class MarketDataService {
     const cacheKey = `candles:${symbol}:${period}:${interval}`;
     return this._withRetry(cacheKey, 'candles', async () => {
       const period1 = this._periodToStartDate(period);
-      const result = await yahooFinance.historical(symbol, {
+      const period2 = new Date();
+      const result = await yahooFinance.chart(symbol, {
         period1,
+        period2,
         interval,
       });
-      return result.map((c) => ({
-        date: c.date.toISOString().slice(0, 10),
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-        volume: c.volume,
-      }));
+      const quotes = result.quotes || [];
+      return quotes
+        .filter((c) => c.close != null) // chart() can include trailing/leading null candles for non-trading periods
+        .map((c) => ({
+          date: c.date.toISOString().slice(0, 10),
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          volume: c.volume,
+        }));
     });
   }
 
