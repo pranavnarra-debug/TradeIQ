@@ -1,23 +1,13 @@
-import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-let transporter = null;
+const RESEND_API_URL = 'https://api.resend.com/emails';
 
-function getTransporter() {
-  if (transporter) return transporter;
-  transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-  return transporter;
-}
+// Sender address. Use Resend's shared sandbox sender by default so this works
+// with zero domain setup. Once you verify your own domain in Resend, set
+// EMAIL_FROM to something like "TradeIQ <noreply@yourdomain.com>" instead.
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'TradeIQ <onboarding@resend.dev>';
 
 function wrapEmailHtml({ heading, bodyHtml, buttonText, buttonUrl, warningText }) {
   return `
@@ -49,6 +39,39 @@ function wrapEmailHtml({ heading, bodyHtml, buttonText, buttonUrl, warningText }
   </div>`;
 }
 
+/**
+ * Sends an email via Resend's HTTPS API (https://resend.com/docs/api-reference/emails/send-email).
+ * Using an HTTPS API instead of SMTP avoids outbound SMTP port restrictions on
+ * hosting platforms (e.g. Railway blocks SMTP on the Hobby plan).
+ */
+async function sendViaResend({ to, subject, html }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY is not set');
+  }
+
+  const res = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => '');
+    throw new Error(`Resend API error (${res.status}): ${errorBody}`);
+  }
+
+  return res.json();
+}
+
 export async function sendVerificationEmail(toEmail, token) {
   const verifyUrl = `${process.env.FRONTEND_URL}/api/auth/verify-email/${token}`;
   const html = wrapEmailHtml({
@@ -59,8 +82,7 @@ export async function sendVerificationEmail(toEmail, token) {
     warningText: 'This link does not expire, but you should verify promptly to access your account.',
   });
 
-  return getTransporter().sendMail({
-    from: process.env.EMAIL_FROM,
+  return sendViaResend({
     to: toEmail,
     subject: 'Verify your TradeIQ account',
     html,
@@ -77,8 +99,7 @@ export async function sendPasswordResetEmail(toEmail, token) {
     warningText: 'This link expires in 1 hour. If you did not request a password reset, please secure your account.',
   });
 
-  return getTransporter().sendMail({
-    from: process.env.EMAIL_FROM,
+  return sendViaResend({
     to: toEmail,
     subject: 'Reset your TradeIQ password',
     html,
