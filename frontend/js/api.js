@@ -4,6 +4,21 @@
    Access token lives in memory only; refresh token in localStorage.
    ============================================================ */
 
+/**
+ * Escapes HTML-significant characters so user- or third-party-supplied text
+ * (usernames, trade reasoning, analysis notes, news headlines, etc.) can be
+ * safely interpolated into innerHTML without enabling stored/reflected XSS.
+ * Always wrap untrusted text with this before placing it in a template string
+ * that gets assigned to .innerHTML.
+ */
+function escapeHtml(str) {
+  if (str == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+window.escapeHtml = escapeHtml;
+
 const API_BASE = '/api';
 const REFRESH_TOKEN_KEY = 'tradeiq_refresh_token';
 const USER_KEY = 'tradeiq_user';
