@@ -129,7 +129,7 @@ const AdminSection = (() => {
         ? '<div class="empty-state">No registrations yet</div>'
         : data.recentRegistrations.map((r) => `
           <div class="recent-reg-item">
-            <div><strong>${r.username}</strong><br/><span class="text-dim">${r.email}</span></div>
+            <div><strong>${escapeHtml(r.username)}</strong><br/><span class="text-dim">${escapeHtml(r.email)}</span></div>
             <div class="reg-time">${timeAgo(r.createdAt)}</div>
           </div>
         `).join('');
@@ -212,10 +212,10 @@ const AdminSection = (() => {
     }
     body.innerHTML = list.map((u) => `
       <tr>
-        <td>${u.username}</td>
+        <td>${escapeHtml(u.username)}</td>
         <td>${new Date(u.connectedAt).toLocaleTimeString()}</td>
         <td>${new Date(u.lastActivity).toLocaleTimeString()}</td>
-        <td><span class="badge badge-hold">${u.currentPage || '—'}</span></td>
+        <td><span class="badge badge-hold">${escapeHtml(u.currentPage) || '—'}</span></td>
       </tr>
     `).join('');
   }
@@ -234,8 +234,8 @@ const AdminSection = (() => {
         body.innerHTML = data.users.map((u, i) => `
           <tr class="user-row" data-user-id="${u.id}" style="cursor:pointer;">
             <td>${(state.page - 1) * 20 + i + 1}</td>
-            <td>${u.username}</td>
-            <td>${u.email}</td>
+            <td>${escapeHtml(u.username)}</td>
+            <td>${escapeHtml(u.email)}</td>
             <td><span class="badge ${u.role === 'admin' ? 'badge-buy' : 'badge-hold'}">${u.role}</span></td>
             <td>${new Date(u.createdAt).toLocaleDateString()}</td>
             <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : '—'}</td>
@@ -281,13 +281,13 @@ const AdminSection = (() => {
       root.innerHTML = `
         <div class="modal-overlay" id="user-modal-overlay">
           <div class="modal-box" style="max-width: 560px;">
-            <h3>${u.username} <span class="badge ${u.role === 'admin' ? 'badge-buy' : 'badge-hold'}">${u.role}</span></h3>
-            <p class="text-dim" style="margin-top:-8px;">${u.email}</p>
+            <h3>${escapeHtml(u.username)} <span class="badge ${u.role === 'admin' ? 'badge-buy' : 'badge-hold'}">${u.role}</span></h3>
+            <p class="text-dim" style="margin-top:-8px;">${escapeHtml(u.email)}</p>
 
             <div class="grid-2" style="margin-bottom: 16px;">
               ${detail.portfolios.map((p) => `
                 <div class="card">
-                  <div class="card-title">${p.portfolioType.toUpperCase()} Portfolio</div>
+                  <div class="card-title">${escapeHtml(p.portfolioType.toUpperCase())} Portfolio</div>
                   <div class="text-dim" style="font-size: 12.5px;">Equity: ${fmtMoney(p.equity)}</div>
                   <div class="text-dim" style="font-size: 12.5px;">Realized P&L: ${fmtMoney(p.realizedPnl)}</div>
                   <div class="text-dim" style="font-size: 12.5px;">Win Rate: ${p.winRate}%</div>
@@ -305,7 +305,7 @@ const AdminSection = (() => {
               <table>
                 <tbody>
                   ${detail.recentTrades.length === 0 ? '<tr><td class="empty-state">No trades</td></tr>' : detail.recentTrades.map((t) => `
-                    <tr><td>${t.symbol}</td><td>${t.action}</td><td>${t.quantity}</td><td>${fmtMoney(Number(t.price))}</td></tr>
+                    <tr><td>${escapeHtml(t.symbol)}</td><td>${escapeHtml(t.action)}</td><td>${t.quantity}</td><td>${fmtMoney(Number(t.price))}</td></tr>
                   `).join('')}
                 </tbody>
               </table>
