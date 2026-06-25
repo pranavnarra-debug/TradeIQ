@@ -180,6 +180,19 @@ router.patch('/users/:id', async (req, res) => {
       return res.status(400).json({ error: 'role must be user or admin' });
     }
 
+    const targetId = Number(req.params.id);
+    // Block an admin from demoting or deactivating their own account. Without
+    // this, a single-admin setup could get permanently locked out with no one
+    // left who can reverse the change.
+    if (targetId === req.user.userId) {
+      if (role === 'user') {
+        return res.status(400).json({ error: 'You cannot remove your own admin role' });
+      }
+      if (isActive === false) {
+        return res.status(400).json({ error: 'You cannot deactivate your own account' });
+      }
+    }
+
     const fields = [];
     const params = [];
     let idx = 1;
@@ -199,6 +212,20 @@ router.patch('/users/:id', async (req, res) => {
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    // Audit trail: record who changed this account and what changed, so it's
+    // possible to answer "who did this" later if a change needs investigating.
+    try {
+      await query(
+        `INSERT INTO admin_audit_log (admin_user_id, target_user_id, action, details)
+         VALUES ($1, $2, 'update_user', $3)`,
+        [req.user.userId, targetId, JSON.stringify({ role, isActive })]
+      );
+    } catch (auditErr) {
+      // Never let audit logging failure block the actual admin action.
+      console.error('Failed to write admin audit log:', auditErr.message);
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Admin update user error:', err);
