@@ -96,9 +96,9 @@ const TradeIQApp = (() => {
             ` : ''}
           </nav>
           <div class="sidebar-footer">
-            <div class="avatar-circle">${getInitials(user.username)}</div>
+            <div class="avatar-circle">${escapeHtml(getInitials(user.username))}</div>
             <div class="sidebar-footer-info">
-              <div class="username">${user.username}</div>
+              <div class="username">${escapeHtml(user.username)}</div>
             </div>
             <button class="logout-btn" id="logout-btn" title="Log out"><i class="fa-solid fa-right-from-bracket"></i></button>
           </div>
@@ -109,7 +109,7 @@ const TradeIQApp = (() => {
             <div class="topbar-title" id="topbar-title">AI Trader</div>
             <div class="topbar-right">
               <span class="market-badge closed" id="market-status-badge">MARKET CLOSED</span>
-              <span>Hi, ${user.username}</span>
+              <span>Hi, ${escapeHtml(user.username)}</span>
             </div>
           </div>
           <div class="content-area" id="content-area"></div>
