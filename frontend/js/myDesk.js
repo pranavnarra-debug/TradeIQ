@@ -13,13 +13,16 @@ const MyDeskSection = (() => {
     gap_and_go: { name: 'Gap and Go', entry: 'Gap up > 1.5%, holding above open, 2x volume', exit: 'Gap fills back below open', indicators: 'Gap %, Volume, SMA20', risk: 'Trailing 2% stop' },
     rsi_swing: { name: 'RSI Swing', entry: 'RSI < 30 in a long-term uptrend with reversal candle', exit: 'RSI recovers to 50+', indicators: 'RSI, SMA200, SMA50', risk: '5% stop below entry' },
     bollinger_squeeze: { name: 'Bollinger Squeeze', entry: 'Bands squeeze < 10% width, breaks upper band', exit: 'Price falls back inside bands', indicators: 'Bollinger Bands, RSI, Volume', risk: 'Stop at middle band' },
+    quality_compounder: { name: 'Quality Compounder', entry: 'Strong ROE, manageable debt, growing revenue & earnings, reasonable P/E', exit: 'Fundamentals deteriorate (rare — this is a buy-and-hold approach)', indicators: 'ROE, debt-to-equity, margins, revenue/earnings growth, P/E, PEG', risk: 'Wide drawdown tolerance — ride out volatility' },
   };
+  const STYLE_LABELS = { day: 'Day trading', swing: 'Swing trading', long_term: 'Long-term investing' };
   const TICKERS = ['AAPL', 'NVDA', 'TSLA', 'AMZN', 'META', 'MSFT', 'GOOGL', 'JPM', 'SPY', 'QQQ'];
 
   let state = {
     portfolioId: null,
     ticker: 'AAPL',
     strategy: 'momentum_breakout',
+    strategyMeta: [],
     period: '3mo',
     orderSide: 'BUY',
     chartInstance: null,
@@ -37,16 +40,50 @@ const MyDeskSection = (() => {
     return `${sign}$${fmt(Math.abs(n))}`;
   }
 
-  async function render(portfolioId) {
+  function currentStyle() {
+    const meta = state.strategyMeta.find((s) => s.id === state.strategy);
+    return meta ? meta.style : null;
+  }
+
+  function strategySelectHtml() {
+    const byStyle = { day: [], swing: [], long_term: [] };
+    state.strategyMeta.forEach((s) => { if (byStyle[s.style] && STRATEGY_INFO[s.id]) byStyle[s.style].push(s); });
+    // Fallback: if metadata hasn't loaded yet, just list everything ungrouped.
+    if (state.strategyMeta.length === 0) {
+      return Object.entries(STRATEGY_INFO).map(([id, s]) => `<option value="${id}" ${id === state.strategy ? 'selected' : ''}>${s.name}</option>`).join('');
+    }
+    return Object.entries(byStyle)
+      .filter(([, list]) => list.length > 0)
+      .map(([style, list]) => `
+        <optgroup label="${STYLE_LABELS[style] || style}">
+          ${list.map((s) => `<option value="${s.id}" ${s.id === state.strategy ? 'selected' : ''}>${STRATEGY_INFO[s.id].name}</option>`).join('')}
+        </optgroup>
+      `).join('');
+  }
+
+  async function render(portfolioId, params) {
     state.portfolioId = portfolioId;
+    if (params && params.strategy && STRATEGY_INFO[params.strategy]) {
+      state.strategy = params.strategy;
+    }
     const content = document.getElementById('content-area');
+    content.innerHTML = `<div class="empty-state"><span class="spinner"></span> Loading...</div>`;
+
+    try {
+      const data = await api.get('/market/strategies');
+      state.strategyMeta = data.strategies || [];
+    } catch (err) {
+      console.error('Failed to load strategy metadata:', err);
+      state.strategyMeta = [];
+    }
 
     content.innerHTML = `
       <div class="controls-row">
         <select class="input" id="desk-ticker-select">${TICKERS.map((t) => `<option value="${t}" ${t === state.ticker ? 'selected' : ''}>${t}</option>`).join('')}</select>
-        <select class="input" id="desk-strategy-select">${Object.entries(STRATEGY_INFO).map(([id, s]) => `<option value="${id}" ${id === state.strategy ? 'selected' : ''}>${s.name}</option>`).join('')}</select>
+        <select class="input" id="desk-strategy-select">${strategySelectHtml()}</select>
         <span class="badge badge-hold" id="desk-signal-indicator">NEUTRAL</span>
       </div>
+      <div class="text-dim" id="desk-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
 
       <div class="trading-layout">
         <div class="card">
@@ -115,6 +152,7 @@ const MyDeskSection = (() => {
     `;
 
     renderStrategyInfo();
+    updateStyleNote();
 
     document.getElementById('desk-ticker-select').addEventListener('change', async (e) => {
       state.ticker = e.target.value;
@@ -126,7 +164,9 @@ const MyDeskSection = (() => {
     document.getElementById('desk-strategy-select').addEventListener('change', (e) => {
       state.strategy = e.target.value;
       renderStrategyInfo();
+      updateStyleNote();
       refreshSignalIndicator();
+      restartSignalPolling();
     });
     document.querySelectorAll('.desk-period-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -155,7 +195,28 @@ const MyDeskSection = (() => {
     await Promise.all([loadChart(), refreshSignalIndicator(), loadPositions(), loadStats()]);
     updateEstimatedCost();
 
-    state.signalTimer = setInterval(refreshSignalIndicator, 15000);
+    restartSignalPolling();
+  }
+
+  function restartSignalPolling() {
+    if (state.signalTimer) clearInterval(state.signalTimer);
+    const intervalMs = currentStyle() === 'long_term' ? 5 * 60 * 1000 : 15000;
+    state.signalTimer = setInterval(refreshSignalIndicator, intervalMs);
+  }
+
+  function updateStyleNote() {
+    const el = document.getElementById('desk-style-note');
+    if (!el) return;
+    const style = currentStyle();
+    if (style === 'long_term') {
+      el.innerHTML = `<i class="fa-solid fa-clock"></i> Long-term strategy — signal reflects fundamentals, not minute-to-minute price action.`;
+    } else if (style === 'day') {
+      el.innerHTML = `<i class="fa-solid fa-bolt"></i> Day trading strategy — meant to be opened and closed within the same session.`;
+    } else if (style === 'swing') {
+      el.innerHTML = `<i class="fa-solid fa-chart-line"></i> Swing trading strategy — typically held for days to a few weeks.`;
+    } else {
+      el.textContent = '';
+    }
   }
 
   function setOrderSide(side) {
