@@ -78,6 +78,19 @@ class StrategyEngine {
     }
   }
 
+  /**
+   * Entry point for fundamentals-based strategies (currently just quality_compounder).
+   * Separate from evaluate() because these strategies don't need candle history.
+   */
+  evaluateFundamentals(strategyId, fundamentals, quote) {
+    switch (strategyId) {
+      case 'quality_compounder':
+        return this._qualityCompounder(fundamentals, quote);
+      default:
+        throw new Error(`Unknown fundamentals strategy: ${strategyId}`);
+    }
+  }
+
   // --- STRATEGY 1: CANSLIM ---
   _canslim(candles, quote, openPosition) {
     const closes = candles.map((c) => c.close);
@@ -432,17 +445,71 @@ class StrategyEngine {
 
     return buildResult({ signal, rules, stopLoss, takeProfit, entryPrice: price, reasoning });
   }
+
+  // --- STRATEGY 9: Quality Compounder (long-term value investing) ---
+  // Unlike the other 8 strategies, this evaluates fundamentals rather than price
+  // action, so it does not require candle history and is called via
+  // evaluateFundamentals() instead of evaluate().
+  _qualityCompounder(fundamentals, quote) {
+    const f = fundamentals;
+    const price = quote?.price ?? null;
+
+    const roePass = f.returnOnEquity != null && f.returnOnEquity > 0.15;
+    const marginPass = f.profitMargins != null && f.profitMargins > 0.10;
+    const debtPass = f.debtToEquity != null && f.debtToEquity < 100; // Yahoo reports this as a percentage-like ratio (e.g. 80 = 0.8x)
+    const liquidityPass = f.currentRatio != null && f.currentRatio > 1.2;
+    const revenueGrowthPass = f.revenueGrowth != null && f.revenueGrowth > 0;
+    const earningsGrowthPass = f.earningsGrowth != null && f.earningsGrowth > 0;
+    const valuationPass = f.trailingPE != null && f.trailingPE > 0 && f.trailingPE < 35;
+    const pegPass = f.pegRatio == null || (f.pegRatio > 0 && f.pegRatio < 2.5);
+    const fcfPass = f.freeCashflow != null && f.freeCashflow > 0;
+
+    const rules = [
+      { name: 'Return on equity > 15%', passed: roePass, value: f.returnOnEquity != null ? `${(f.returnOnEquity * 100).toFixed(1)}%` : 'n/a' },
+      { name: 'Profit margin > 10%', passed: marginPass, value: f.profitMargins != null ? `${(f.profitMargins * 100).toFixed(1)}%` : 'n/a' },
+      { name: 'Debt-to-equity < 1.0x', passed: debtPass, value: f.debtToEquity != null ? `${(f.debtToEquity / 100).toFixed(2)}x` : 'n/a' },
+      { name: 'Current ratio > 1.2 (liquidity)', passed: liquidityPass, value: f.currentRatio != null ? f.currentRatio.toFixed(2) : 'n/a' },
+      { name: 'Revenue growing', passed: revenueGrowthPass, value: f.revenueGrowth != null ? `${(f.revenueGrowth * 100).toFixed(1)}%` : 'n/a' },
+      { name: 'Earnings growing', passed: earningsGrowthPass, value: f.earningsGrowth != null ? `${(f.earningsGrowth * 100).toFixed(1)}%` : 'n/a' },
+      { name: 'P/E under 35 (not overpaying)', passed: valuationPass, value: f.trailingPE != null ? f.trailingPE.toFixed(1) : 'n/a' },
+      { name: 'PEG ratio reasonable (<2.5)', passed: pegPass, value: f.pegRatio != null ? f.pegRatio.toFixed(2) : 'n/a' },
+      { name: 'Positive free cash flow', passed: fcfPass, value: f.freeCashflow != null ? `$${(f.freeCashflow / 1e9).toFixed(2)}B` : 'n/a' },
+    ];
+
+    const passed = rules.filter((r) => r.passed).length;
+    const confidencePct = (passed / rules.length) * 100;
+
+    let signal = 'HOLD';
+    if (confidencePct >= 75) signal = 'BUY';
+    else if (confidencePct < 40) signal = 'SELL';
+
+    // Long-term holds don't use tight technical stops; a wide drawdown tolerance
+    // reflects the buy-and-hold philosophy of riding out volatility.
+    const stopLoss = price != null ? price * 0.75 : null;
+    const takeProfit = price != null ? price * 2 : null;
+
+    const reasoning = `Quality Compounder: ${passed}/9 fundamental checks passed. ${roePass ? 'Strong' : 'Weak'} return on equity, ${debtPass ? 'manageable' : 'elevated'} debt load, ${revenueGrowthPass && earningsGrowthPass ? 'growing' : 'mixed'} top and bottom line. ${valuationPass ? 'Valuation looks reasonable' : 'Valuation looks stretched'} at a P/E of ${f.trailingPE != null ? f.trailingPE.toFixed(1) : 'n/a'}.`;
+
+    return buildResult({ signal, rules, stopLoss, takeProfit, entryPrice: price, reasoning });
+  }
 }
 
 export default new StrategyEngine();
 
 export const STRATEGY_LIST = [
-  { id: 'canslim', name: 'CANSLIM', description: "O'Neil's growth-stock screen: trend, strength, and volume confirmation." },
-  { id: 'momentum_breakout', name: 'Momentum Breakout', description: 'Buys confirmed breakouts above recent resistance with volume support.' },
-  { id: 'vwap_reversion', name: 'VWAP Mean Reversion', description: 'Buys oversold dips below VWAP within an established uptrend.' },
-  { id: 'ema_crossover', name: 'EMA Crossover', description: 'Trades bullish crosses of the 9/21/50 EMA stack.' },
-  { id: 'opening_range_breakout', name: 'Opening Range Breakout', description: "Buys breaks above the day's opening range with volume." },
-  { id: 'gap_and_go', name: 'Gap and Go', description: 'Trades stocks gapping up on strong volume that hold their gap.' },
-  { id: 'rsi_swing', name: 'RSI Swing', description: 'Buys oversold RSI dips within a longer-term uptrend.' },
-  { id: 'bollinger_squeeze', name: 'Bollinger Squeeze', description: 'Trades volatility expansion breakouts after a low-volatility squeeze.' },
+  { id: 'canslim', name: 'CANSLIM', description: "O'Neil's growth-stock screen: trend, strength, and volume confirmation.", style: 'swing', horizon: 'Days to weeks' },
+  { id: 'momentum_breakout', name: 'Momentum Breakout', description: 'Buys confirmed breakouts above recent resistance with volume support.', style: 'swing', horizon: 'Days to weeks' },
+  { id: 'vwap_reversion', name: 'VWAP Mean Reversion', description: 'Buys oversold dips below VWAP within an established uptrend.', style: 'day', horizon: 'Intraday' },
+  { id: 'ema_crossover', name: 'EMA Crossover', description: 'Trades bullish crosses of the 9/21/50 EMA stack.', style: 'swing', horizon: 'Days to weeks' },
+  { id: 'opening_range_breakout', name: 'Opening Range Breakout', description: "Buys breaks above the day's opening range with volume.", style: 'day', horizon: 'Intraday' },
+  { id: 'gap_and_go', name: 'Gap and Go', description: 'Trades stocks gapping up on strong volume that hold their gap.', style: 'day', horizon: 'Intraday' },
+  { id: 'rsi_swing', name: 'RSI Swing', description: 'Buys oversold RSI dips within a longer-term uptrend.', style: 'swing', horizon: 'Days to weeks' },
+  { id: 'bollinger_squeeze', name: 'Bollinger Squeeze', description: 'Trades volatility expansion breakouts after a low-volatility squeeze.', style: 'swing', horizon: 'Days to weeks' },
+  { id: 'quality_compounder', name: 'Quality Compounder', description: 'Buy-and-hold value investing: strong fundamentals, manageable debt, reasonable valuation.', style: 'long_term', horizon: 'Years' },
+];
+
+export const STRATEGY_STYLES = [
+  { id: 'day', label: 'Day trading', description: 'In and out within the same session.' },
+  { id: 'swing', label: 'Swing trading', description: 'Held for days to a few weeks.' },
+  { id: 'long_term', label: 'Long-term investing', description: 'Buy-and-hold, built on fundamentals.' },
 ];
