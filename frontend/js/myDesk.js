@@ -340,14 +340,14 @@ const MyDeskSection = (() => {
       }
       body.innerHTML = positions.map((p) => `
         <tr>
-          <td>${p.symbol}</td>
-          <td>${p.side}</td>
+          <td>${escapeHtml(p.symbol)}</td>
+          <td>${escapeHtml(p.side)}</td>
           <td>${p.quantity}</td>
           <td>${fmtMoney(Number(p.entry_price))}</td>
           <td>${fmtMoney(p.currentPrice)}</td>
           <td class="${p.unrealizedPnl >= 0 ? 'pnl-cell positive' : 'pnl-cell negative'}">${fmtMoney(p.unrealizedPnl)}</td>
           <td class="${p.unrealizedPnlPct >= 0 ? 'pnl-cell positive' : 'pnl-cell negative'}">${fmt(p.unrealizedPnlPct, 1)}%</td>
-          <td><button class="btn btn-sm close-position-btn" data-pos-id="${p.id}" data-symbol="${p.symbol}">Close</button></td>
+          <td><button class="btn btn-sm close-position-btn" data-pos-id="${p.id}" data-symbol="${escapeHtml(p.symbol)}">Close</button></td>
         </tr>
       `).join('');
 
@@ -397,12 +397,12 @@ const MyDeskSection = (() => {
           : history.map((t) => `
             <tr>
               <td>${new Date(t.executed_at).toLocaleString()}</td>
-              <td>${t.symbol}</td>
+              <td>${escapeHtml(t.symbol)}</td>
               <td><span class="badge ${t.action === 'BUY' ? 'badge-buy' : 'badge-sell'}">${t.action}</span></td>
               <td>${fmtMoney(Number(t.price))}</td>
               <td>${t.quantity}</td>
               <td class="${t.realized_pnl == null ? '' : Number(t.realized_pnl) >= 0 ? 'pnl-cell positive' : 'pnl-cell negative'}">${t.realized_pnl == null ? '—' : fmtMoney(Number(t.realized_pnl))}</td>
-              <td>${t.strategy || '—'}</td>
+              <td>${escapeHtml(t.strategy) || '—'}</td>
             </tr>
           `).join('');
       }
