@@ -1,0 +1,92 @@
+# TradeIQ Incident Response Plan
+
+A short, practical runbook for what to actually do if something goes wrong —
+a breach, leaked credentials, suspicious admin activity, or a security report
+from a user. The goal is to have already decided the first few steps before
+you're stressed and time-pressured in the moment.
+
+## 1. Triage — figure out what kind of incident this is
+
+| Signal | Likely category |
+|---|---|
+| Unexpected admin account changes, unfamiliar admin login | Account compromise |
+| A user reports seeing another user's data | IDOR / authorization bug |
+| Spike in failed logins for one or many accounts | Credential stuffing / brute force |
+| Unusual outbound traffic, server behaving strangely | Server compromise |
+| A secret (API key, DB password) was pasted somewhere public | Credential exposure |
+| Users report unexpected emails/password resets they didn't request | Account takeover attempts |
+
+## 2. Immediate containment (do this first, investigate after)
+
+- **Credential exposure** (API key, DB password, JWT secret leaked):
+  Rotate it immediately in the relevant dashboard (Resend, Railway, etc.) and
+  update the corresponding Railway environment variable. Redeploy.
+- **Suspected account compromise (any account, including admin)**:
+  In the database, immediately run:
+  ```sql
+  DELETE FROM refresh_tokens WHERE user_id = <id>;
+  UPDATE users SET locked_until = NOW() + INTERVAL '24 hours' WHERE id = <id>;
+  ```
+  This force-logs-out every session for that account and blocks new logins
+  while you investigate.
+- **Suspected server/database compromise**: Rotate `DATABASE_URL`,
+  `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `RESEND_API_KEY` in Railway.
+  Rotating the JWT secrets immediately invalidates every active session
+  app-wide, forcing everyone to log in again — disruptive, but appropriate
+  if you believe the secrets themselves may be exposed.
+- **A specific vulnerability is being actively exploited**: If you can
+  identify the endpoint, consider temporarily disabling it (comment out the
+  route, redeploy) while you prepare a real fix, rather than leaving it live
+  while you work.
+
+## 3. Investigate
+
+- Check Railway's runtime logs around the relevant timestamp.
+- Query `admin_audit_log` for any unexpected admin actions.
+- Query `user_sessions` for unfamiliar IP addresses / connection patterns
+  on the affected account(s) (remember: this table only retains 30 days).
+- Check `refresh_tokens` for a `family_id` with an unusually long chain of
+  rotations, or any row with `revoked = TRUE` that was reused (this would
+  have already triggered an automatic full-family revocation, but the
+  pattern itself is worth confirming in the data).
+
+## 4. Fix the root cause
+
+Don't just contain the specific incident — identify and fix the underlying
+gap so the same thing can't happen again. Document what changed.
+
+## 5. Notify, if needed
+
+If user data was actually exposed (not just an attempted/blocked intrusion),
+you may have legal notification obligations depending on your jurisdiction
+and how many users are affected. **This is a question for a lawyer, not a
+technical decision** — get advice on notification requirements before
+deciding whether/how to notify affected users.
+
+## 6. After-action review
+
+Once resolved, write a short note (even just to yourself) covering:
+- What happened and when
+- How it was detected
+- What was done to contain and fix it
+- What will change going forward (new monitoring, a code fix, a process change)
+
+## Quick reference: where things live
+
+- **Logs**: Railway dashboard → backend service → Deployments → active deployment → View Logs
+- **Database access**: `railway connect` (select Postgres) or `psql "<DATABASE_PUBLIC_URL>"`
+- **Rotate a secret**: Railway dashboard → backend service → Variables tab
+- **Audit trail of admin actions**: `SELECT * FROM admin_audit_log ORDER BY created_at DESC;`
+- **Force logout one user**: `DELETE FROM refresh_tokens WHERE user_id = <id>;`
+- **Force logout everyone** (nuclear option — only for a suspected secret-level compromise):
+  rotate `JWT_ACCESS_SECRET` in Railway and redeploy. Every existing access
+  token becomes invalid immediately; refresh tokens still work once users
+  log in again normally, since they're independent of the JWT secret.
+- **Database restore (point-in-time recovery)**: Postgres service → Railway
+  dashboard → look for the PITR/restore option. Restores to a specific
+  timestamp, not just the latest snapshot. Confirmed enabled as of this
+  writing — restore window is whatever Railway's retention shows on your
+  current plan; check that number periodically, since it can change with
+  plan tier. Restoring spins up a separate database rather than overwriting
+  the live one in place, so the existing app keeps running while you verify
+  the restored data before cutting over.
