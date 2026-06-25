@@ -58,7 +58,7 @@ const ResearchSection = (() => {
       state.analysis = analysis;
       renderResults(analysis);
     } catch (err) {
-      document.getElementById('research-results').innerHTML = `<div class="empty-state">Could not load analysis for ${symbol}. ${err.message || ''}</div>`;
+      document.getElementById('research-results').innerHTML = `<div class="empty-state">Could not load analysis for ${escapeHtml(symbol)}. ${escapeHtml(err.message)}</div>`;
     } finally {
       document.getElementById('research-loading').style.display = 'none';
     }
@@ -98,10 +98,10 @@ const ResearchSection = (() => {
         <div>
           <div class="card" style="margin-bottom: 16px;">
             <div class="company-header">
-              <div class="company-logo-placeholder">${a.symbol.slice(0, 2)}</div>
+              <div class="company-logo-placeholder">${escapeHtml(a.symbol.slice(0, 2))}</div>
               <div class="company-header-info">
-                <h2>${a.profile?.name || a.symbol} (${a.symbol})</h2>
-                <div class="meta">${a.profile?.sector || '—'} · ${a.profile?.industry || '—'} · ${fmtLargeNum(a.profile?.marketCap)}</div>
+                <h2>${escapeHtml(a.profile?.name || a.symbol)} (${escapeHtml(a.symbol)})</h2>
+                <div class="meta">${escapeHtml(a.profile?.sector) || '—'} · ${escapeHtml(a.profile?.industry) || '—'} · ${fmtLargeNum(a.profile?.marketCap)}</div>
               </div>
               <div style="margin-left:auto; text-align:right;">
                 <div style="font-size:20px; font-weight:800;">${fmtMoney(q.price)}</div>
@@ -131,9 +131,9 @@ const ResearchSection = (() => {
               <tbody>
                 ${a.canslim.rows.map((r) => `
                   <tr class="${canslimRowClass(r)}">
-                    <td><strong>${r.letter}</strong> — ${r.name}</td>
+                    <td><strong>${escapeHtml(r.letter)}</strong> — ${escapeHtml(r.name)}</td>
                     <td>${r.pass ? '✅ Pass' : '❌ Fail'}</td>
-                    <td class="text-dim">${r.justification}</td>
+                    <td class="text-dim">${escapeHtml(r.justification)}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -152,8 +152,8 @@ const ResearchSection = (() => {
             <div class="card">
               <div class="card-title">Pattern Detection</div>
               <div style="text-align:center; padding: 18px 0;">
-                <span class="badge badge-hold" style="font-size:13px; padding: 8px 16px;">${a.pattern.pattern}</span>
-                <p class="text-dim" style="font-size: 12.5px; margin-top: 12px;">${a.pattern.description}</p>
+                <span class="badge badge-hold" style="font-size:13px; padding: 8px 16px;">${escapeHtml(a.pattern.pattern)}</span>
+                <p class="text-dim" style="font-size: 12.5px; margin-top: 12px;">${escapeHtml(a.pattern.description)}</p>
               </div>
             </div>
           </div>
@@ -162,8 +162,8 @@ const ResearchSection = (() => {
             <div class="card-title">Recent News</div>
             ${a.news && a.news.length > 0 ? a.news.map((n) => `
               <div class="news-item">
-                <div class="news-item-title">${n.url ? `<a href="${n.url}" target="_blank" rel="noopener">${escapeHtml(n.title)}</a>` : escapeHtml(n.title)}</div>
-                <div class="news-item-meta">${n.publisher || ''} ${n.publishedAt ? '· ' + new Date(n.publishedAt).toLocaleDateString() : ''}</div>
+                <div class="news-item-title">${n.url ? `<a href="${escapeHtml(n.url)}" target="_blank" rel="noopener">${escapeHtml(n.title)}</a>` : escapeHtml(n.title)}</div>
+                <div class="news-item-meta">${escapeHtml(n.publisher) || ''} ${n.publishedAt ? '· ' + new Date(n.publishedAt).toLocaleDateString() : ''}</div>
               </div>
             `).join('') : '<div class="empty-state">No recent news found</div>'}
           </div>
@@ -177,9 +177,9 @@ const ResearchSection = (() => {
                 <div class="text-dim" style="font-size:12.5px;">${a.verdict.confidence}% confidence</div>
               </div>
             </div>
-            <p style="font-size: 13.5px; color: #c9d1d9; line-height: 1.6;">${a.verdict.rationale}</p>
+            <p style="font-size: 13.5px; color: #c9d1d9; line-height: 1.6;">${escapeHtml(a.verdict.rationale)}</p>
             <ul class="risk-bullets">
-              ${a.verdict.riskBullets.map((b) => `<li>${b}</li>`).join('')}
+              ${a.verdict.riskBullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}
             </ul>
           </div>
         </div>
@@ -291,8 +291,8 @@ const ResearchSection = (() => {
     const supportCompare = closeOrDiffer(a.technical.low52, my.supportLevel, 5);
 
     const differences = [];
-    if (trendCompare.cls === 'differ') differences.push(`You assessed the trend as ${my.trendAssessment} while the AI sees ${aiTrend}.`);
-    if (verdictCompare.cls === 'differ') differences.push(`Your verdict (${my.verdict}) differs from the AI's (${a.verdict.signal}) — review which CANSLIM criteria you may be weighing differently.`);
+    if (trendCompare.cls === 'differ') differences.push(`You assessed the trend as ${escapeHtml(my.trendAssessment)} while the AI sees ${escapeHtml(aiTrend)}.`);
+    if (verdictCompare.cls === 'differ') differences.push(`Your verdict (${escapeHtml(my.verdict)}) differs from the AI's (${escapeHtml(a.verdict.signal)}) — review which CANSLIM criteria you may be weighing differently.`);
     if (canslimCompare.cls !== 'agree') differences.push(`Your CANSLIM score (${myCanslimScore}/7) differs from the AI's (${aiCanslimScore}/7).`);
     if (differences.length === 0) differences.push('Your analysis closely matches the AI assessment — nice work staying objective!');
 
@@ -303,14 +303,14 @@ const ResearchSection = (() => {
         <table class="comparison-table">
           <thead><tr><th>Dimension</th><th>AI Assessment</th><th>My Assessment</th><th>Agreement</th></tr></thead>
           <tbody>
-            <tr><td>Trend</td><td>${aiTrend}</td><td>${my.trendAssessment}</td><td class="${trendCompare.cls}">${trendCompare.label}</td></tr>
+            <tr><td>Trend</td><td>${escapeHtml(aiTrend)}</td><td>${escapeHtml(my.trendAssessment)}</td><td class="${trendCompare.cls}">${trendCompare.label}</td></tr>
             <tr><td>Support</td><td>${fmtMoney(a.technical.low52)}</td><td>${fmtMoney(my.supportLevel)}</td><td class="${supportCompare.cls}">${supportCompare.label}</td></tr>
-            <tr><td>Verdict</td><td>${a.verdict.signal}</td><td>${my.verdict}</td><td class="${verdictCompare.cls}">${verdictCompare.label}</td></tr>
+            <tr><td>Verdict</td><td>${escapeHtml(a.verdict.signal)}</td><td>${escapeHtml(my.verdict)}</td><td class="${verdictCompare.cls}">${verdictCompare.label}</td></tr>
             <tr><td>CANSLIM Score</td><td>${aiCanslimScore}/7</td><td>${myCanslimScore}/7</td><td class="${canslimCompare.cls}">${canslimCompare.label}</td></tr>
           </tbody>
         </table>
         <div class="reasoning-box" style="margin-top: 14px;">
-          <strong>Key Differences:</strong> ${differences.join(' ')}
+          <strong>Key Differences:</strong> ${differences.map(escapeHtml).join(' ')}
         </div>
       </div>
     `;
