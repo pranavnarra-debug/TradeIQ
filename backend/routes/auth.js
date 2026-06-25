@@ -31,6 +31,18 @@ function generateRefreshToken() {
   return crypto.randomBytes(48).toString('hex');
 }
 
+const MAX_FAILED_ATTEMPTS = 6;
+const LOCKOUT_MINUTES = 15;
+
+/**
+ * Revokes every refresh token for a user, forcing logout on all other devices/sessions.
+ * Used after a password change/reset, since a stolen old session shouldn't survive
+ * the user taking the corrective action of changing their password.
+ */
+async function revokeAllSessionsForUser(userId) {
+  await query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
+}
+
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
@@ -112,11 +124,30 @@ router.post('/login', async (req, res) => {
     const result = await query('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
     if (!user) {
+      // Same generic message as a wrong password, so this endpoint doesn't reveal
+      // whether an email is registered.
       return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Account lockout check — runs before the password comparison so a locked
+    // account doesn't leak timing/behavior differences based on password correctness.
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      return res.status(429).json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.` });
     }
 
     const matches = await bcrypt.compare(password, user.password_hash);
     if (!matches) {
+      const newCount = (user.failed_login_count || 0) + 1;
+      const shouldLock = newCount >= MAX_FAILED_ATTEMPTS;
+      await query(
+        `UPDATE users SET failed_login_count = $1, last_failed_login_at = NOW(),
+         locked_until = $2 WHERE id = $3`,
+        [newCount, shouldLock ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) : null, user.id]
+      );
+      if (shouldLock) {
+        return res.status(429).json({ error: `Too many failed attempts. Try again in ${LOCKOUT_MINUTES} minutes.` });
+      }
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
@@ -128,15 +159,22 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'Please verify your email before logging in. Check your inbox for the verification link.' });
     }
 
+    // Successful login: clear any failed-attempt counter/lock from past tries.
+    await query(
+      'UPDATE users SET last_login = NOW(), failed_login_count = 0, locked_until = NULL WHERE id = $1',
+      [user.id]
+    );
+
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+    // New login = new family. Every token produced by rotating this one (via /refresh)
+    // shares this family_id, which is what lets us revoke the whole chain on reuse.
     await query(
       'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [user.id, refreshToken, expiresAt]
     );
-    await query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
 
     res.json({
       accessToken,
@@ -165,6 +203,18 @@ router.post('/refresh', async (req, res) => {
     if (!tokenRow) {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
+
+    // Reuse detection: this exact token was already rotated out once before.
+    // A legitimate client would have moved on to its replacement token and
+    // never present this one again — so seeing it now means it was almost
+    // certainly copied/stolen and is being replayed by someone else. Revoke
+    // every token in the family so both the thief and the legitimate user are
+    // logged out, forcing a fresh login (and the legitimate user will notice).
+    if (tokenRow.revoked) {
+      await query('DELETE FROM refresh_tokens WHERE family_id = $1', [tokenRow.family_id]);
+      return res.status(401).json({ error: 'This session is no longer valid. Please log in again.' });
+    }
+
     if (new Date(tokenRow.expires_at) < new Date()) {
       await query('DELETE FROM refresh_tokens WHERE id = $1', [tokenRow.id]);
       return res.status(401).json({ error: 'Refresh token expired' });
@@ -179,10 +229,12 @@ router.post('/refresh', async (req, res) => {
     const newRefreshToken = generateRefreshToken();
     const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await query('DELETE FROM refresh_tokens WHERE id = $1', [tokenRow.id]);
+    // Mark the old token revoked (rather than deleting it) so a later replay
+    // attempt can be detected and matched back to this family.
+    await query('UPDATE refresh_tokens SET revoked = TRUE WHERE id = $1', [tokenRow.id]);
     await query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [tokenRow.user_id, newRefreshToken, newExpiresAt]
+      'INSERT INTO refresh_tokens (user_id, token, family_id, expires_at) VALUES ($1, $2, $3, $4)',
+      [tokenRow.user_id, newRefreshToken, tokenRow.family_id, newExpiresAt]
     );
 
     res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
@@ -281,10 +333,15 @@ router.post('/reset-password', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
     await query(
-      `UPDATE users SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL
+      `UPDATE users SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL,
+       failed_login_count = 0, locked_until = NULL
        WHERE id = $2`,
       [passwordHash, user.id]
     );
+
+    // Force logout everywhere: if an attacker had a stolen session, resetting
+    // the password shouldn't leave that session valid for another 7 days.
+    await revokeAllSessionsForUser(user.id);
 
     res.json({ message: 'Password has been reset successfully' });
   } catch (err) {
