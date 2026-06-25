@@ -336,12 +336,12 @@ const AiTraderSection = (() => {
       body.innerHTML = history.slice(0, 20).map((t) => `
         <tr>
           <td>${new Date(t.executed_at).toLocaleString()}</td>
-          <td>${t.symbol}</td>
-          <td>${t.strategy || '—'}</td>
+          <td>${escapeHtml(t.symbol)}</td>
+          <td>${escapeHtml(t.strategy) || '—'}</td>
           <td><span class="badge ${t.action === 'BUY' ? 'badge-buy' : 'badge-sell'}">${t.action}</span></td>
           <td>${fmtMoney(Number(t.price))}</td>
           <td>${t.quantity}</td>
-          <td style="max-width:240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${(t.reasoning || '').replace(/"/g, '&quot;')}">${t.reasoning || '—'}</td>
+          <td style="max-width:240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.reasoning)}">${escapeHtml(t.reasoning) || '—'}</td>
           <td class="${t.realized_pnl == null ? '' : Number(t.realized_pnl) >= 0 ? 'pnl-cell positive' : 'pnl-cell negative'}">${t.realized_pnl == null ? '—' : fmtMoney(Number(t.realized_pnl))}</td>
         </tr>
       `).join('');
