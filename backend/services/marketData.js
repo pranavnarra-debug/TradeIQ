@@ -6,6 +6,15 @@ import YahooFinance from 'yahoo-finance2';
 // on minor upstream changes without indicating an actual problem with our requests.
 const yahooFinance = new YahooFinance({ validation: { logErrors: false, logOptionsErrors: false } });
 
+// Every outbound call to Yahoo gets an explicit timeout so a hung upstream
+// request can't tie up our event loop / a request handler indefinitely. Without
+// this, a single slow/unresponsive Yahoo endpoint could exhaust connections and
+// degrade the whole app for every user, not just the one whose request stalled.
+const REQUEST_TIMEOUT_MS = 8000;
+function withTimeout() {
+  return { fetchOptions: { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) } };
+}
+
 const TTL = {
   quote: 15000, // 15s
   candles: 60000, // 1min
@@ -70,7 +79,7 @@ class MarketDataService {
   async getQuote(symbol) {
     const cacheKey = `quote:${symbol}`;
     return this._withRetry(cacheKey, 'quote', async () => {
-      const q = await yahooFinance.quote(symbol);
+      const q = await yahooFinance.quote(symbol, {}, withTimeout());
       return {
         symbol: q.symbol,
         price: q.regularMarketPrice ?? null,
@@ -96,7 +105,7 @@ class MarketDataService {
         period1,
         period2,
         interval,
-      });
+      }, withTimeout());
       const quotes = result.quotes || [];
       return quotes
         .filter((c) => c.close != null) // chart() can include trailing/leading null candles for non-trading periods
@@ -116,7 +125,7 @@ class MarketDataService {
     return this._withRetry(cacheKey, 'profile', async () => {
       const result = await yahooFinance.quoteSummary(symbol, {
         modules: ['assetProfile', 'summaryDetail'],
-      });
+      }, withTimeout());
       const profile = result.assetProfile || {};
       const summary = result.summaryDetail || {};
       return {
@@ -141,7 +150,7 @@ class MarketDataService {
     return this._withRetry(cacheKey, 'profile', async () => {
       const result = await yahooFinance.quoteSummary(symbol, {
         modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail', 'assetProfile'],
-      });
+      }, withTimeout());
       const fin = result.financialData || {};
       const stats = result.defaultKeyStatistics || {};
       const summary = result.summaryDetail || {};
@@ -181,7 +190,7 @@ class MarketDataService {
   async getNews(symbol) {
     const cacheKey = `news:${symbol}`;
     return this._withRetry(cacheKey, 'news', async () => {
-      const result = await yahooFinance.search(symbol, { newsCount: 10 });
+      const result = await yahooFinance.search(symbol, { newsCount: 10 }, withTimeout());
       const news = result.news || [];
       return news.map((n) => ({
         title: n.title,
