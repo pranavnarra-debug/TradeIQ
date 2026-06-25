@@ -62,6 +62,9 @@ async function sendViaResend({ to, subject, html }) {
       subject,
       html,
     }),
+    // Without a timeout, a hung Resend request could tie up the request handler
+    // that triggered it (registration, password reset) indefinitely.
+    signal: AbortSignal.timeout(8000),
   });
 
   if (!res.ok) {
