@@ -16,6 +16,7 @@ import portfolioRoutes from './routes/portfolio.js';
 import lessonsRoutes from './routes/lessons.js';
 import adminRoutes from './routes/admin.js';
 import { startMarketCacheJobs } from './jobs/marketCache.js';
+import { startDataRetentionJobs } from './jobs/dataRetention.js';
 
 dotenv.config();
 
@@ -25,21 +26,51 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 
+// Railway (and most PaaS providers) terminate TLS and proxy requests to the app.
+// Without this, Express can't tell real client IPs from the proxy's IP, which
+// breaks IP-based rate limiting and the "secure" check helmet's HSTS relies on.
+// `1` trusts exactly one hop (the platform's own edge proxy) rather than blindly
+// trusting the whole X-Forwarded-For chain, which would let a client spoof its IP.
+app.set('trust proxy', 1);
+
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // --- Security & core middleware ---
-app.use(helmet());
+app.use(helmet({
+  // Force HTTPS for a full year, including subdomains, once a browser has seen this header once.
+  // Safe to enable since Railway always serves over HTTPS; only relevant if you ever add a custom domain.
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+}));
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
-app.use(express.json());
+// Explicit body size cap: prevents large request bodies from being used as a cheap
+// memory/CPU exhaustion vector. 100kb comfortably covers every real payload this
+// app sends (trade orders, lesson quiz answers, analysis text); nothing legitimate
+// needs more.
+app.use(express.json({ limit: '100kb' }));
 
-// --- Rate limiting on auth routes ---
+// --- Rate limiting ---
+// Looser limiter for general auth traffic (register, check-username, verify-email).
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },
 });
+// Strict limiter specifically for credential-guessing-prone endpoints (login, password
+// reset). Kept separate from the general auth limiter so a burst of registration
+// traffic can't use up the budget that protects login from brute-forcing, and vice versa.
+const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again in a few minutes' },
+  keyGenerator: (req) => `${req.ip}:${(req.body && req.body.email) || ''}`,
+});
+app.use('/api/auth/login', credentialLimiter);
+app.use('/api/auth/forgot-password', credentialLimiter);
+app.use('/api/auth/reset-password', credentialLimiter);
 app.use('/api/auth', authLimiter);
 
 // --- Mount API routes ---
@@ -147,10 +178,14 @@ io.on('connection', async (socket) => {
   });
 
   try {
+    // User agent is truncated since the full string can be more identifying than
+    // needed here — this is only ever used (if at all) to spot anomalies like an
+    // unfamiliar device/browser combo, not to fingerprint the exact build/version.
+    const truncatedUserAgent = (socket.handshake.headers['user-agent'] || '').slice(0, 120) || null;
     await query(
       `INSERT INTO user_sessions (user_id, socket_id, ip_address, user_agent)
        VALUES ($1, $2, $3, $4)`,
-      [userId, socket.id, socket.handshake.address, socket.handshake.headers['user-agent'] || null]
+      [userId, socket.id, socket.handshake.address, truncatedUserAgent]
     );
   } catch (err) {
     console.error('Failed to log session:', err.message);
@@ -198,6 +233,7 @@ setInterval(async () => {
 
 // --- Start scheduled jobs ---
 startMarketCacheJobs();
+startDataRetentionJobs();
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
