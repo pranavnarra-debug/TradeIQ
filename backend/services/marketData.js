@@ -131,6 +131,53 @@ class MarketDataService {
     });
   }
 
+  /**
+   * Fundamentals used by the long-term "Quality Compounder" value-investing strategy.
+   * Pulls from financialData, defaultKeyStatistics, and summaryDetail since each
+   * holds a different slice of the metrics a fundamentals screen needs.
+   */
+  async getFundamentals(symbol) {
+    const cacheKey = `fundamentals:${symbol}`;
+    return this._withRetry(cacheKey, 'profile', async () => {
+      const result = await yahooFinance.quoteSummary(symbol, {
+        modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail', 'assetProfile'],
+      });
+      const fin = result.financialData || {};
+      const stats = result.defaultKeyStatistics || {};
+      const summary = result.summaryDetail || {};
+      const profile = result.assetProfile || {};
+
+      return {
+        name: profile.longName ?? profile.shortName ?? symbol,
+        sector: profile.sector ?? null,
+        marketCap: summary.marketCap ?? null,
+        trailingPE: summary.trailingPE ?? null,
+        forwardPE: summary.forwardPE ?? stats.forwardPE ?? null,
+        pegRatio: stats.pegRatio ?? null,
+        priceToBook: stats.priceToBook ?? null,
+        dividendYield: summary.dividendYield ?? null,
+        payoutRatio: summary.payoutRatio ?? null,
+        returnOnEquity: fin.returnOnEquity ?? null,
+        returnOnAssets: fin.returnOnAssets ?? null,
+        debtToEquity: fin.debtToEquity ?? null,
+        currentRatio: fin.currentRatio ?? null,
+        quickRatio: fin.quickRatio ?? null,
+        profitMargins: fin.profitMargins ?? stats.profitMargins ?? null,
+        operatingMargins: fin.operatingMargins ?? null,
+        grossMargins: fin.grossMargins ?? null,
+        revenueGrowth: fin.revenueGrowth ?? null,
+        earningsGrowth: fin.earningsGrowth ?? stats.earningsQuarterlyGrowth ?? null,
+        freeCashflow: fin.freeCashflow ?? null,
+        operatingCashflow: fin.operatingCashflow ?? null,
+        totalDebt: fin.totalDebt ?? null,
+        totalCash: fin.totalCash ?? null,
+        beta: summary.beta ?? stats.beta ?? null,
+        targetMeanPrice: fin.targetMeanPrice ?? null,
+        recommendationKey: fin.recommendationKey ?? null,
+      };
+    });
+  }
+
   async getNews(symbol) {
     const cacheKey = `news:${symbol}`;
     return this._withRetry(cacheKey, 'news', async () => {
