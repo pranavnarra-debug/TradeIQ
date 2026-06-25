@@ -4,23 +4,16 @@
    ============================================================ */
 
 const AiTraderSection = (() => {
-  const STRATEGIES = [
-    { id: 'canslim', name: 'CANSLIM', description: "O'Neil's growth-stock screen: trend, strength, volume confirmation." },
-    { id: 'momentum_breakout', name: 'Momentum Breakout', description: 'Buys confirmed breakouts above recent resistance with volume support.' },
-    { id: 'vwap_reversion', name: 'VWAP Mean Reversion', description: 'Buys oversold dips below VWAP within an uptrend.' },
-    { id: 'ema_crossover', name: 'EMA Crossover', description: 'Trades bullish crosses of the 9/21/50 EMA stack.' },
-    { id: 'opening_range_breakout', name: 'Opening Range Breakout', description: "Buys breaks above the day's opening range with volume." },
-    { id: 'gap_and_go', name: 'Gap and Go', description: 'Trades stocks gapping up on strong volume that hold their gap.' },
-    { id: 'rsi_swing', name: 'RSI Swing', description: 'Buys oversold RSI dips within a longer-term uptrend.' },
-    { id: 'bollinger_squeeze', name: 'Bollinger Squeeze', description: 'Trades volatility expansion breakouts after a squeeze.' },
-  ];
   const TICKERS = ['AAPL', 'NVDA', 'TSLA', 'AMZN', 'META', 'MSFT', 'GOOGL', 'JPM', 'SPY', 'QQQ'];
   const POLL_INTERVAL_S = 15;
+  const LONG_TERM_POLL_INTERVAL_S = 300; // long-term fundamentals don't change minute to minute
   const CONFIDENCE_THRESHOLD = 65;
+  const STYLE_LABELS = { day: 'Day trading', swing: 'Swing trading', long_term: 'Long-term investing' };
 
   let state = {
     portfolioId: null,
     strategy: 'momentum_breakout',
+    strategies: [],
     ticker: 'AAPL',
     period: '3mo',
     running: false,
@@ -31,6 +24,16 @@ const AiTraderSection = (() => {
     tradeMarkers: [],
     lastResult: null,
   };
+
+  function currentStrategyMeta() {
+    return state.strategies.find((s) => s.id === state.strategy) || {};
+  }
+  function isLongTerm() {
+    return currentStrategyMeta().style === 'long_term';
+  }
+  function pollIntervalSeconds() {
+    return isLongTerm() ? LONG_TERM_POLL_INTERVAL_S : POLL_INTERVAL_S;
+  }
 
   function fmt(n, decimals = 2) {
     if (n == null || isNaN(n)) return '—';
@@ -43,15 +46,36 @@ const AiTraderSection = (() => {
   }
 
   function strategyOptionsHtml() {
-    return STRATEGIES.map((s) => `<option value="${s.id}" ${s.id === state.strategy ? 'selected' : ''}>${s.name}</option>`).join('');
+    const byStyle = { day: [], swing: [], long_term: [] };
+    state.strategies.forEach((s) => { if (byStyle[s.style]) byStyle[s.style].push(s); });
+    return Object.entries(byStyle)
+      .filter(([, list]) => list.length > 0)
+      .map(([style, list]) => `
+        <optgroup label="${STYLE_LABELS[style] || style}">
+          ${list.map((s) => `<option value="${s.id}" ${s.id === state.strategy ? 'selected' : ''}>${s.name}</option>`).join('')}
+        </optgroup>
+      `).join('');
   }
   function tickerOptionsHtml() {
     return TICKERS.map((t) => `<option value="${t}" ${t === state.ticker ? 'selected' : ''}>${t}</option>`).join('');
   }
 
-  async function render(portfolioId) {
+  async function render(portfolioId, params) {
     state.portfolioId = portfolioId;
+    if (params && params.strategy) {
+      state.strategy = params.strategy;
+    }
+
     const content = document.getElementById('content-area');
+    content.innerHTML = `<div class="empty-state"><span class="spinner"></span> Loading...</div>`;
+
+    try {
+      const data = await api.get('/market/strategies');
+      state.strategies = data.strategies || [];
+    } catch (err) {
+      console.error('Failed to load strategy list:', err);
+      state.strategies = [];
+    }
 
     content.innerHTML = `
       <div class="controls-row">
@@ -60,6 +84,7 @@ const AiTraderSection = (() => {
         <button class="btn btn-green ai-toggle-btn" id="ai-toggle-btn"><i class="fa-solid fa-play"></i> Start AI</button>
         <span class="countdown-indicator" id="ai-countdown"></span>
       </div>
+      <div class="text-dim" id="ai-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
 
       <div class="trading-layout">
         <div class="card">
@@ -73,7 +98,7 @@ const AiTraderSection = (() => {
         <div>
           <div class="card" style="margin-bottom: 16px;">
             <div class="thought-panel-header">
-              <span class="strategy-name" id="ai-strategy-name">${STRATEGIES.find((s) => s.id === state.strategy).name}</span>
+              <span class="strategy-name" id="ai-strategy-name">${currentStrategyMeta().name || ''}</span>
               <span class="badge badge-hold" id="ai-signal-badge">HOLD</span>
             </div>
             <div class="confidence-bar-wrap">
@@ -111,10 +136,17 @@ const AiTraderSection = (() => {
       </div>
     `;
 
+    updateStyleNote();
+
     document.getElementById('ai-strategy-select').addEventListener('change', (e) => {
       state.strategy = e.target.value;
-      document.getElementById('ai-strategy-name').textContent = STRATEGIES.find((s) => s.id === state.strategy).name;
+      document.getElementById('ai-strategy-name').textContent = currentStrategyMeta().name || '';
+      updateStyleNote();
       refreshSignal();
+      if (state.running) {
+        stopPolling();
+        startPolling();
+      }
     });
     document.getElementById('ai-ticker-select').addEventListener('change', async (e) => {
       state.ticker = e.target.value;
@@ -230,10 +262,18 @@ const AiTraderSection = (() => {
     try {
       const positions = await api.get(`/portfolio/${state.portfolioId}/positions`);
       const openPos = positions.find((p) => p.symbol === state.ticker);
+      const longTerm = isLongTerm();
+      // Long-term conviction buys use a larger notional sizing than quick swing/day entries,
+      // since this represents a real buy-and-hold position rather than a short-term trade.
+      const notional = longTerm ? 5000 : 2000;
+      // Long-term holds shouldn't flip to SELL on a single weak reading the way a day
+      // trade would — require a confidently bad fundamentals read (signal SELL AND low
+      // confidence in the BUY case means the thesis has clearly broken) before exiting.
+      const shouldExitLongTerm = longTerm && result.signal === 'SELL' && result.confidence < 30;
 
       if (!openPos && result.signal === 'BUY' && result.confidence > CONFIDENCE_THRESHOLD) {
         const quote = await api.get(`/market/quote/${state.ticker}`);
-        const qty = Math.max(1, Math.floor(2000 / quote.price)); // simple fixed-notional sizing
+        const qty = Math.max(1, Math.floor(notional / quote.price));
         await api.post(`/portfolio/${state.portfolioId}/trade`, {
           symbol: state.ticker, action: 'BUY', quantity: qty, orderType: 'market',
           strategy: state.strategy, reasoning: result.reasoning,
@@ -242,7 +282,7 @@ const AiTraderSection = (() => {
         await loadTradeLog();
         await loadPortfolioSummary();
         await loadChart();
-      } else if (openPos && result.signal === 'SELL') {
+      } else if (openPos && (longTerm ? shouldExitLongTerm : result.signal === 'SELL')) {
         await api.post(`/portfolio/${state.portfolioId}/close/${openPos.id}`, {});
         document.getElementById('ai-position-status').textContent = 'FLAT';
         await loadTradeLog();
@@ -325,14 +365,15 @@ const AiTraderSection = (() => {
   }
 
   function startPolling() {
-    state.secondsLeft = POLL_INTERVAL_S;
+    const intervalS = pollIntervalSeconds();
+    state.secondsLeft = intervalS;
     updateCountdownDisplay();
     state.countdownTimer = setInterval(() => {
       state.secondsLeft -= 1;
-      if (state.secondsLeft <= 0) state.secondsLeft = POLL_INTERVAL_S;
+      if (state.secondsLeft <= 0) state.secondsLeft = intervalS;
       updateCountdownDisplay();
     }, 1000);
-    state.pollTimer = setInterval(refreshSignal, POLL_INTERVAL_S * 1000);
+    state.pollTimer = setInterval(refreshSignal, intervalS * 1000);
     refreshSignal();
   }
 
@@ -350,7 +391,21 @@ const AiTraderSection = (() => {
     if (el) el.textContent = `Next update in ${state.secondsLeft}s`;
   }
 
-  return { render, STRATEGIES, TICKERS };
+  function updateStyleNote() {
+    const el = document.getElementById('ai-style-note');
+    if (!el) return;
+    const meta = currentStrategyMeta();
+    if (!meta.style) { el.textContent = ''; return; }
+    if (meta.style === 'long_term') {
+      el.innerHTML = `<i class="fa-solid fa-clock"></i> Long-term strategy — re-checks fundamentals every 5 minutes, not every few seconds. This isn't a day trade.`;
+    } else if (meta.style === 'day') {
+      el.innerHTML = `<i class="fa-solid fa-bolt"></i> Day trading strategy — designed for intraday moves, closed out same session.`;
+    } else {
+      el.innerHTML = `<i class="fa-solid fa-chart-line"></i> Swing trading strategy — typically held for days to a few weeks.`;
+    }
+  }
+
+  return { render, TICKERS };
 })();
 
 window.AiTraderSection = AiTraderSection;
