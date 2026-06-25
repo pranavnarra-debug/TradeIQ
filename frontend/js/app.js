@@ -158,7 +158,7 @@ const TradeIQApp = (() => {
   };
 
   const SECTION_RENDERERS = {
-    'ai-trader': () => window.AiTraderSection && window.AiTraderSection.render(getAiPortfolioId()),
+    'ai-trader': (params) => window.AiTraderSection && window.AiTraderSection.render(getAiPortfolioId(), params),
     'my-desk': () => window.MyDeskSection && window.MyDeskSection.render(getManualPortfolioId()),
     research: () => window.ResearchSection && window.ResearchSection.render(),
     lessons: (params) => window.LessonsSection && window.LessonsSection.render(params),
