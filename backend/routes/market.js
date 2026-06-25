@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate } from '../middleware/auth.js';
 import marketData from '../services/marketData.js';
-import strategyEngine from '../services/strategyEngine.js';
+import strategyEngine, { STRATEGY_LIST, STRATEGY_STYLES } from '../services/strategyEngine.js';
 import {
   calcSMA,
   calcEMA,
@@ -57,6 +57,16 @@ router.get('/profile/:symbol', async (req, res) => {
   }
 });
 
+router.get('/fundamentals/:symbol', async (req, res) => {
+  try {
+    const data = await marketData.getFundamentals(req.params.symbol.toUpperCase());
+    res.json(data);
+  } catch (err) {
+    console.error('Fundamentals error:', err);
+    res.status(500).json({ error: 'Failed to fetch fundamentals' });
+  }
+});
+
 router.get('/news/:symbol', async (req, res) => {
   try {
     const data = await marketData.getNews(req.params.symbol.toUpperCase());
@@ -67,12 +77,30 @@ router.get('/news/:symbol', async (req, res) => {
   }
 });
 
+router.get('/strategies', (req, res) => {
+  res.json({ strategies: STRATEGY_LIST, styles: STRATEGY_STYLES });
+});
+
+const FUNDAMENTALS_STRATEGIES = new Set(['quality_compounder']);
+
 router.get('/strategy/:symbol', async (req, res) => {
   try {
     const symbol = req.params.symbol.toUpperCase();
     const { strategy } = req.query;
     if (!strategy) {
       return res.status(400).json({ error: 'strategy query param is required' });
+    }
+
+    if (FUNDAMENTALS_STRATEGIES.has(strategy)) {
+      const [fundamentals, quote] = await Promise.all([
+        marketData.getFundamentals(symbol),
+        marketData.getQuote(symbol),
+      ]);
+      if (fundamentals.error || quote.error) {
+        return res.status(503).json({ error: 'Data temporarily unavailable' });
+      }
+      const result = strategyEngine.evaluateFundamentals(strategy, fundamentals, quote);
+      return res.json({ symbol, strategy, ...result });
     }
 
     const [candles, quote] = await Promise.all([
