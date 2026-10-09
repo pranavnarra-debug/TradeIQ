@@ -25,7 +25,7 @@ A gamified financial-education site. Visitors land on a public home page and can
 
 ## Run it locally
 
-Needs Node 20+. No Postgres install required.
+Needs Node 22+. No Postgres install required.
 
 ```bash
 cd backend

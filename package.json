@@ -6,6 +6,6 @@
     "start": "cd backend && node scripts/migrate.js && node server.js"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "22.x"
   }
 }
