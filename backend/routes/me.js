@@ -198,7 +198,7 @@ router.get('/export', async (req, res, next) => {
     const id = req.user.userId;
     // One connection, one transaction: a consistent snapshot without
     // opening nine connections at once.
-    const [user, portfolios, positions, trades, analyses, lessons, exams, achievements, xp] = await withTransaction(async (db) => {
+    const [user, portfolios, positions, trades, analyses, lessons, exams, achievements, xp, avatar, items, equipment, coinHistory] = await withTransaction(async (db) => {
       const out = [];
       for (const [sql, params] of [
         [
@@ -214,6 +214,10 @@ router.get('/export', async (req, res, next) => {
         ['SELECT unit_id, best_score, passed, attempts, passed_at FROM unit_exams WHERE user_id = $1', [id]],
         ['SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = $1', [id]],
         ['SELECT source, ref, amount, created_at FROM xp_events WHERE user_id = $1 ORDER BY created_at', [id]],
+        ['SELECT avatar_config FROM users WHERE id = $1', [id]],
+        ['SELECT item_id, source, acquired_at FROM user_items WHERE user_id = $1', [id]],
+        ['SELECT slot, item_id FROM user_equipment WHERE user_id = $1', [id]],
+        ['SELECT amount, reason, ref, created_at FROM coin_events WHERE user_id = $1 ORDER BY created_at', [id]],
       ]) out.push(await db.query(sql, params));
       return out;
     });
@@ -229,6 +233,10 @@ router.get('/export', async (req, res, next) => {
       unitExams: exams.rows,
       achievements: achievements.rows,
       xpHistory: xp.rows,
+      avatar: avatar.rows[0]?.avatar_config || null,
+      items: items.rows,
+      equipment: equipment.rows,
+      coinHistory: coinHistory.rows,
     });
   } catch (err) {
     next(err);

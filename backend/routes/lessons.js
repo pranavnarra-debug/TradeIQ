@@ -17,7 +17,7 @@ const LESSON_PASS = 60;
 const EXAM_PASS = 70;
 const EXAM_SIZE = 15;
 const EXAM_XP = 200;
-const EXAM_COINS = 50;
+const EXAM_COINS = 150;
 
 const catalogCache = publicCatalog();
 
@@ -129,7 +129,7 @@ router.post('/lesson/:lessonId/complete', async (req, res, next) => {
       let coinsGained = 0;
       if (!prev) {
         xpGained = target;
-        coinsGained = 5 + (score === 100 ? 5 : 0);
+        coinsGained = 10 + (score === 100 ? 5 : 0);
         await db.query(
           `INSERT INTO lesson_completions (user_id, lesson_id, unit_id, best_score, xp_awarded) VALUES ($1, $2, $3, $4, $5)`,
           [userId, entry.lesson.id, entry.unitId, score, xpGained]

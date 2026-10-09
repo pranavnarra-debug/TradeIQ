@@ -195,3 +195,40 @@ test('limit orders cannot be used to print money', async () => {
   assert.equal(after.cash, 50000);
   await call('DELETE', '/api/me', { password: 'Correct horse 9', confirm: 'DELETE' });
 });
+
+test('hideout: starter kit, appearance validation, shop guards', async () => {
+  const r0 = await call('POST', '/api/auth/register', { username: `${uname}g`, password: 'Correct horse 9', acceptTerms: true, confirmAge: true }, { auth: false });
+  access = r0.data.accessToken;
+  const cat = (await call('GET', '/api/game/catalog', null, { auth: false })).data;
+  assert.ok(cat.items.length > 0 && cat.appearance.skin.length > 0);
+  let st = (await call('GET', '/api/game/state')).data;
+  const starters = cat.items.filter((i) => i.unlockKind === 'starter');
+  assert.equal(st.inventory.length, starters.length, 'starter kit granted');
+  assert.equal(Object.keys(st.equipment).length, starters.length, 'starter kit equipped');
+  st = (await call('GET', '/api/game/state')).data;
+  assert.equal(st.inventory.length, starters.length, 'starter kit only granted once');
+
+  let r = await call('PUT', '/api/game/appearance', { hairStyle: 'mohawk', skin: cat.appearance.skin[0] });
+  assert.equal(r.data.appearance.hairStyle, 'mohawk');
+  r = await call('PUT', '/api/game/appearance', { skin: '#00ff00' });
+  assert.equal(r.status, 400);
+
+  const shopItem = cat.items.find((i) => i.unlockKind === 'shop' && i.world === 1 && i.price > 0);
+  if (shopItem) {
+    r = await call('POST', '/api/game/buy', { itemId: shopItem.id });
+    assert.equal(r.status, 400, 'new players cannot afford it');
+    assert.match(r.data.error, /more coins/);
+  }
+  const lockedItem = cat.items.find((i) => i.unlockKind === 'shop' && i.world > 1);
+  if (lockedItem) {
+    r = await call('POST', '/api/game/buy', { itemId: lockedItem.id });
+    assert.equal(r.status, 403, 'later worlds are locked until you learn');
+  }
+  r = await call('PUT', '/api/game/equip', { slot: 'helmet', itemId: starters.find((i) => i.slot !== 'helmet').id });
+  assert.equal(r.status, 400);
+  if (shopItem) {
+    r = await call('PUT', '/api/game/equip', { slot: shopItem.slot, itemId: shopItem.id });
+    assert.equal(r.status, 403, "can't equip what you don't own");
+  }
+  await call('DELETE', '/api/me', { password: 'Correct horse 9', confirm: 'DELETE' });
+});

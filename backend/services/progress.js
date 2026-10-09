@@ -52,7 +52,7 @@ export const ACHIEVEMENTS = [
   { id: 'unit_futures', name: 'Futures Pilot', desc: 'Pass the Unit 4 exam', xp: 0, coins: 0, sprite: 'bolt' },
   { id: 'all_units', name: 'Grand Champion', desc: 'Pass all four unit exams', xp: 500, coins: 200, sprite: 'chip' },
   { id: 'first_trade', name: 'Off the Bench', desc: 'Place your first simulated trade', xp: 15, coins: 10, sprite: 'bolt' },
-  { id: 'trades_25', name: 'Desk Jockey', desc: 'Place 25 simulated trades', xp: 50, coins: 20, sprite: 'bolt' },
+  { id: 'trades_25', name: 'Desk Jockey', desc: 'Journal 25 trades (write why you made them)', xp: 50, coins: 20, sprite: 'bolt' },
   { id: 'first_profit', name: 'In the Green', desc: 'Close a simulated trade at a profit', xp: 20, coins: 10, sprite: 'chip' },
   { id: 'cut_loss', name: 'Grizz Approves', desc: 'Close a losing trade (cutting losses is a skill)', xp: 20, coins: 10, sprite: 'grizz' },
   { id: 'email_verified', name: 'Backup Plan', desc: 'Add and confirm a recovery email', xp: 20, coins: 10, sprite: 'penny' },
@@ -126,6 +126,9 @@ export async function checkAchievements(db, userId) {
          (SELECT COUNT(*) FROM lesson_completions WHERE user_id = $1 AND best_score = 100)::int AS perfects,
          (SELECT ARRAY_AGG(unit_id) FROM unit_exams WHERE user_id = $1 AND passed) AS units,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id = $1)::int AS trades,
+         (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id
+            WHERE p.user_id = $1 AND p.portfolio_type = 'manual' AND LENGTH(t.reasoning) >= 15
+              AND t.reasoning NOT IN ('Manual trade from My Trading Desk', 'Closed position'))::int AS journaled,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id = $1 AND t.realized_pnl > 0)::int AS wins,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id = $1 AND t.realized_pnl < 0)::int AS losses,
          u.streak_current AS streak, u.email_verified AS verified
@@ -153,7 +156,7 @@ export async function checkAchievements(db, userId) {
     unit_futures: units.has('futures'),
     all_units: ['money', 'stocks', 'options', 'futures'].every((u) => units.has(u)),
     first_trade: s.trades >= 1,
-    trades_25: s.trades >= 25,
+    trades_25: s.journaled >= 25,
     first_profit: s.wins >= 1,
     cut_loss: s.losses >= 1,
     email_verified: Boolean(s.verified),

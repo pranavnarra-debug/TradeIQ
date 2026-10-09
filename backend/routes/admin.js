@@ -306,6 +306,7 @@ const EXPLORER_TABLES = [
   'users', 'portfolios', 'positions', 'trades', 'lesson_completions', 'unit_exams', 'xp_events',
   'user_achievements', 'user_analyses', 'user_sessions', 'refresh_tokens', 'email_log',
   'admin_audit_log', 'admin_metrics_snapshots', 'lesson_progress', 'schema_migrations',
+  'user_items', 'user_equipment', 'coin_events',
 ];
 const REDACT = new Set([
   'password_hash', 'token', 'email_verify_token', 'reset_password_token', 'recovery_code_hash', 'email_unsubscribe_token',

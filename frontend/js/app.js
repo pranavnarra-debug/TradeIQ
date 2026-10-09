@@ -20,6 +20,7 @@ const App = (() => {
     { path: /^\/bot\/?$/, name: 'bot', auth: true, legacy: true, render: (m, q) => withPortfolios(() => AiTraderSection.render(portfolioId('ai'), paramsFrom(q))) },
     { path: /^\/research\/?$/, name: 'research', auth: true, legacy: true, render: () => ResearchSection.render() },
     { path: /^\/me\/?$/, name: 'me', auth: true, render: () => Profile.render() },
+    { path: /^\/hideout\/?$/, name: 'hideout', auth: true, render: () => Hideout.render() },
     { path: /^\/ranks\/?$/, name: 'ranks', auth: true, render: () => Ranks.render() },
     { path: /^\/settings\/?$/, name: 'settings', auth: true, render: () => Settings.render() },
     { path: /^\/admin\/?$/, name: 'admin', auth: true, admin: true, legacy: true, render: () => AdminSection.render() },
@@ -37,6 +38,7 @@ const App = (() => {
 
   const NAV = [
     { href: '/learn', label: 'Learn', icon: 'map', name: 'learn' },
+    { href: '/hideout', label: 'Hideout', icon: 'house', name: 'hideout' },
     { href: '/trade', label: 'Trade', icon: 'chart', name: 'trade' },
     { href: '/bot', label: 'Bot', icon: 'bolt', name: 'bot' },
     { href: '/research', label: 'Research', icon: 'magnifier', name: 'research' },
@@ -197,6 +199,8 @@ const App = (() => {
     m.className = 'menu';
     m.innerHTML = `<div class="menu-head"><b>${escapeHtml(u.username)}</b><br><small class="muted">Level ${u.level.level} · ${escapeHtml(u.level.title)}</small></div>
       <a href="/me">${Sprites.icon('person', 18)} Profile & badges</a>
+      <a href="/hideout">${Sprites.icon('house', 18)} Hideout & gear</a>
+      <a href="/research">${Sprites.icon('magnifier', 18)} Research</a>
       <a href="/settings">${Sprites.icon('gear', 18)} Settings</a>
       ${u.role === 'admin' ? `<a href="/admin">${Sprites.icon('shield', 18)} Admin</a>` : ''}
       <button data-logout>${Sprites.icon('door', 18)} Log out</button>`;

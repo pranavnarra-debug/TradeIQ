@@ -114,6 +114,8 @@ const MyDeskSection = (() => {
               <input class="input" type="number" id="limit-price-input" placeholder="Limit price" style="display:none;" />
             </div>
             <div class="estimated-cost" id="estimated-cost">≈ $0.00</div>
+            <label class="field" style="margin-bottom:12px"><span>Trade journal <small class="muted" style="font-weight:500">(optional) Why this trade? What would make you exit?</small></span>
+              <textarea class="input" id="trade-note" rows="2" maxlength="500" placeholder="e.g. Broke above resistance on high volume. Exit if it closes back below $150."></textarea></label>
             <button class="btn btn-primary btn-block" id="place-trade-btn">Place Trade</button>
           </div>
 
@@ -317,8 +319,9 @@ const MyDeskSection = (() => {
             orderType,
             limitPrice: orderType === 'limit' ? limitPrice : undefined,
             strategy: state.strategy,
-            reasoning: 'Manual trade from My Trading Desk',
+            reasoning: document.getElementById('trade-note').value.trim() || 'Manual trade from My Trading Desk',
           }));
+          document.getElementById('trade-note').value = '';
           await Promise.all([loadPositions(), loadStats()]);
           showToast('success', 'Trade executed (simulated)');
         } catch (err) {

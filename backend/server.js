@@ -20,6 +20,7 @@ import portfolioRoutes from './routes/portfolio.js';
 import lessonsRoutes from './routes/lessons.js';
 import adminRoutes from './routes/admin.js';
 import emailRoutes from './routes/email.js';
+import gameRoutes from './routes/game.js';
 import { startMarketCacheJobs } from './jobs/marketCache.js';
 import { startDataRetentionJobs } from './jobs/dataRetention.js';
 import { startEmailJobs } from './jobs/emailJobs.js';
@@ -107,6 +108,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/lessons', lessonsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/game', gameRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {

@@ -1,0 +1,829 @@
+{
+  "version": 1,
+  "currency": "coins",
+  "slots": ["helmet", "chest", "legs", "boots", "weapon", "offhand", "trinket"],
+  "stats": {
+    "power": "How hard your attacks hit once correct answers have charged your weapon.",
+    "defense": "Cuts the damage you take from each boss hit (about 3% per point, capped at 60%).",
+    "focus": "How much charge each correct answer gives your weapon, and how fast your dash recovers.",
+    "luck": "Critical-hit chance: 1% per point, capped at 15%. Never changes coins, drops or prices."
+  },
+  "rarities": ["common", "uncommon", "rare", "epic", "legendary"],
+  "effectTypes": {
+    "streak_damage": "+value% damage per consecutive correct answer (stacks up to 5).",
+    "first_strike": "The first correct answer of a fight deals +value% damage.",
+    "shield_on_correct": "Gain a value-HP shield after each correct answer.",
+    "second_chance": "Once per fight, a wrong answer becomes a miss with no damage taken.",
+    "time_bonus": "+value seconds on hard questions only.",
+    "heal_on_streak": "Heal value HP after 3 correct answers in a row.",
+    "crit_damage": "Critical hits deal +value% extra damage.",
+    "thorns": "Reflect value% of damage taken back to the boss.",
+    "coin_bonus": "+value% coins from quests (all sources combined cap at 25%).",
+    "xp_bonus": "+value% XP from battles (never lesson XP).",
+    "hint": "Once per fight, remove value wrong answer(s) from a question.",
+    "dodge": "value% chance to dodge a boss attack automatically.",
+    "low_hp_power": "+value% damage while below 30% HP. Reserved: not used in v1 because it rewards fighting on when nearly wiped out, the in-game version of revenge trading.",
+    "steady": "Your damage can't vary: no crits and no glancing blows. Value is unused (0).",
+    "damage_reduction": "Take value% less damage from every source.",
+    "damage_cap": "No single boss hit can take more than value% of your max HP.",
+    "buffer_hp": "Start each fight with a value-HP buffer bar that soaks damage before your HP. It does not refill during the fight.",
+    "telegraph": "Boss attack wind-ups become visible value seconds earlier.",
+    "start_charge": "Start each fight with value% weapon charge.",
+    "periodic_double": "Every value seconds of a fight, your next hit deals double damage.",
+    "dash_cooldown": "Your dash recharges value% faster.",
+    "mix_bonus": "+value to every stat if your 4 armor pieces come from at least 3 different sets.",
+    "charge_hold": "Your weapon charge never fades while you wait. Value is unused (0).",
+    "hp_cost": "Lose value% of your max HP at the start of each fight (a fee or premium you pay up front).",
+    "damage_dealt_mod": "Change all damage you deal by value% (negative values are a tradeoff).",
+    "discount_window": "For 3 seconds after the boss lands a big attack, your hits deal +value% damage.",
+    "review_queue": "After the fight, up to value missed questions are added to your spaced-review queue.",
+    "damage_over_time": "Your hits deal an extra value% of their damage spread over the next 5 seconds.",
+    "last_stand": "Once per fight, a hit that would knock you out leaves you at value HP instead.",
+    "buff_extend": "Once per fight, extend one timed effect by value seconds."
+  },
+  "effectNotes": [
+    "Any effect may carry an optional \"duration\" in seconds; without it the effect lasts the whole fight.",
+    "Effects of the same type from different items add together, except once-per-fight effects (second_chance, hint, last_stand, buff_extend), where each item grants its own single use.",
+    "Rule for designers: within the same world and slot, no two items share an effect type."
+  ],
+  "sets": [
+    {
+      "id": "rookie-threads",
+      "name": "Rookie Threads",
+      "world": 1,
+      "theme": "The hoodie-and-sneakers outfit every new player starts in. Comfy, not armored.",
+      "lesson": "Everyone starts somewhere; the first step is showing up and learning the basics.",
+      "palette": { "A": "#8A8F98", "B": "#4A6FA5", "C": "#F2F2F2" },
+      "bonuses": [
+        { "pieces": 2, "text": "Rookie Tip: once per fight, Hoot crosses out one wrong answer for you.", "stats": {}, "effects": [ { "type": "hint", "value": 1, "text": "Once per fight, remove 1 wrong answer from a question." } ] },
+        { "pieces": 4, "text": "First-Day Nerves Gone: +1 focus.", "stats": { "focus": 1 }, "effects": [] }
+      ]
+    },
+    {
+      "id": "rainy-day",
+      "name": "Penny's Rainy-Day Gear",
+      "world": 1,
+      "theme": "A bright yellow raincoat kit stitched by Penny the piggy bank. Built for storms you did not schedule.",
+      "lesson": "An emergency fund of 3-6 months of expenses absorbs life's surprise hits so they don't turn into debt.",
+      "palette": { "A": "#F2C14E", "B": "#2B3A67", "C": "#F4A7B9" },
+      "bonuses": [
+        { "pieces": 2, "text": "Cushion: +2 defense.", "stats": { "defense": 2 }, "effects": [] },
+        { "pieces": 4, "text": "Rainy-Day Fund: once per fight, a wrong answer costs you nothing. The fund refills between fights, not during them.", "stats": { "defense": 1 }, "effects": [ { "type": "second_chance", "value": 1, "text": "Once per fight, a wrong answer becomes a miss with no damage taken." } ] }
+      ]
+    },
+    {
+      "id": "snowball-knight",
+      "name": "Snowball Knight",
+      "world": 1,
+      "theme": "Icy white-and-gold plate that gets stronger the longer you keep rolling. Chip insists it is 'very aerodynamic'.",
+      "lesson": "Compounding: returns earn their own returns, so a streak of small gains snowballs, and starting early matters most.",
+      "palette": { "A": "#7EC8E3", "B": "#F5F7FA", "C": "#E8B04B" },
+      "bonuses": [
+        { "pieces": 2, "text": "Momentum: +2 power.", "stats": { "power": 2 }, "effects": [] },
+        { "pieces": 4, "text": "Interest on Interest: every correct answer in a row adds +8% damage, up to 5 stacks. A wrong answer melts the snowball.", "stats": { "power": 1 }, "effects": [ { "type": "streak_damage", "value": 8, "text": "+8% damage per consecutive correct answer (up to 5 stacks)." } ] }
+      ]
+    },
+    {
+      "id": "budget-ranger",
+      "name": "Budget Ranger",
+      "world": 1,
+      "theme": "Light forest-green leathers with a pocket for every dollar. Fast, planned, never caught flat-footed.",
+      "lesson": "A 50/30/20 budget that pays yourself first gives every dollar a job before it can wander off.",
+      "palette": { "A": "#3E8E5E", "B": "#C9A66B", "C": "#8C3B2E" },
+      "bonuses": [
+        { "pieces": 2, "text": "Planned Ahead: +2 focus.", "stats": { "focus": 2 }, "effects": [] },
+        { "pieces": 4, "text": "Every Dollar Has a Job: surprise attacks find nothing to hit. 10% chance to dodge, and your dash recharges 20% faster.", "stats": { "focus": 1 }, "effects": [ { "type": "dodge", "value": 10, "text": "10% chance to dodge a boss attack." }, { "type": "dash_cooldown", "value": 20, "text": "Dash recharges 20% faster." } ] }
+      ]
+    },
+    {
+      "id": "basket-weaver",
+      "name": "Basket Weaver",
+      "world": 1,
+      "theme": "Patchwork wicker armor woven from many different materials. No single weak spot, no single strong one.",
+      "lesson": "Diversification: owning many things that don't move together reduces the damage any one of them can do.",
+      "palette": { "A": "#C8A165", "B": "#A23B5B", "C": "#6BA368" },
+      "bonuses": [
+        { "pieces": 2, "text": "Spread Out: +1 defense, +1 luck.", "stats": { "defense": 1, "luck": 1 }, "effects": [] },
+        { "pieces": 4, "text": "Many Baskets: take 10% less damage from every source.", "stats": {}, "effects": [ { "type": "damage_reduction", "value": 10, "text": "Take 10% less damage from every source." } ] }
+      ]
+    },
+    {
+      "id": "value-vanguard",
+      "name": "Value Vanguard",
+      "world": 2,
+      "theme": "Deep purple plate with silver trim, forged for knights who only charge when the price is right.",
+      "lesson": "Buy with a margin of safety: when Mr. Market panics, good companies go on sale below their intrinsic value.",
+      "palette": { "A": "#4B3F72", "B": "#C0C7D1", "C": "#2FA36B" },
+      "bonuses": [
+        { "pieces": 2, "text": "Room to Be Wrong: +3 defense.", "stats": { "defense": 3 }, "effects": [] },
+        { "pieces": 4, "text": "Buy the Panic: right after the boss lands one of its big attacks, you get a 3-second Discount Window where your hits deal +30% damage.", "stats": { "power": 2 }, "effects": [ { "type": "discount_window", "value": 30, "text": "For 3 seconds after a big boss attack, deal +30% damage." } ] }
+      ]
+    },
+    {
+      "id": "stop-loss-sentinel",
+      "name": "Stop-Loss Sentinel",
+      "world": 2,
+      "theme": "Crimson-and-charcoal guard armor with a built-in tripwire. Grizz's favorite outfit, obviously.",
+      "lesson": "Decide your exit and size your position before you enter, so one bad trade can never sink the account.",
+      "palette": { "A": "#C0392B", "B": "#2E2E38", "C": "#F39C12" },
+      "bonuses": [
+        { "pieces": 2, "text": "Pre-Planned Exit: +3 focus.", "stats": { "focus": 3 }, "effects": [] },
+        { "pieces": 4, "text": "Stop Triggered: no single hit can take more than 20% of your max HP. Like a stop order, it caps each loss; it does not stop you losing several in a row.", "stats": { "defense": 2 }, "effects": [ { "type": "damage_cap", "value": 20, "text": "No single boss hit can take more than 20% of your max HP." } ] }
+      ]
+    },
+    {
+      "id": "day-trader",
+      "name": "Day Trader",
+      "world": 2,
+      "theme": "Neon-and-black speed gear covered in tiny price tickers. Hits hard, fast and often. Leaks HP on every trade.",
+      "lesson": "Fast, frequent trading raises both your wins and your losses, and the fees and spreads come out every single time.",
+      "palette": { "A": "#E040FB", "B": "#121212", "C": "#FFE600" },
+      "bonuses": [
+        { "pieces": 2, "text": "Hot Hand: +2 power, +1 luck, -1 defense.", "stats": { "power": 2, "luck": 1, "defense": -1 }, "effects": [] },
+        { "pieces": 4, "text": "All Gas: critical hits deal +40% damage, but you pay 5% of your max HP at the start of every fight in fees.", "stats": {}, "effects": [ { "type": "crit_damage", "value": 40, "text": "Critical hits deal +40% damage." }, { "type": "hp_cost", "value": 5, "text": "Lose 5% of max HP at the start of each fight (fees and spreads)." } ] }
+      ]
+    },
+    {
+      "id": "covered-caller",
+      "name": "Covered Caller",
+      "world": 3,
+      "theme": "Teal-and-cream robes of a steady income collector. Never the flashiest hit in the arena, never broke either.",
+      "lesson": "Selling covered calls earns steady premium income but caps your upside if the stock rockets.",
+      "palette": { "A": "#1F8A8A", "B": "#F3E9D2", "C": "#E76F51" },
+      "bonuses": [
+        { "pieces": 2, "text": "Collect the Premium: +4 focus.", "stats": { "focus": 4 }, "effects": [] },
+        { "pieces": 4, "text": "Premium Income: every correct answer pays a 4-HP shield, but your damage is locked steady: no crits, ever. Capped upside, reliable income.", "stats": { "focus": 2 }, "effects": [ { "type": "shield_on_correct", "value": 4, "text": "Gain a 4-HP shield after each correct answer." }, { "type": "steady", "value": 0, "text": "Damage can't vary: no crits and no glancing blows." } ] }
+      ]
+    },
+    {
+      "id": "protective-put",
+      "name": "Protective Put",
+      "world": 3,
+      "theme": "Navy insurance-adjuster plate with orange expiry stamps on every piece. Coverage is excellent. Until it isn't.",
+      "lesson": "A protective put is insurance: you pay a premium up front, it caps your losses, and it expires.",
+      "palette": { "A": "#1D3557", "B": "#A8DADC", "C": "#F4A261" },
+      "bonuses": [
+        { "pieces": 2, "text": "Coverage: +4 defense.", "stats": { "defense": 4 }, "effects": [] },
+        { "pieces": 4, "text": "Bought Protection: pay 5% of your max HP at the start of each fight (the premium). For the next 30 seconds, no single hit can take more than 10% of your max HP. Then the policy expires.", "stats": { "defense": 2 }, "effects": [ { "type": "hp_cost", "value": 5, "text": "Lose 5% of max HP at the start of each fight (the premium)." }, { "type": "damage_cap", "value": 10, "duration": 30, "text": "For the first 30 seconds, no single hit can take more than 10% of your max HP." } ] }
+      ]
+    },
+    {
+      "id": "micro-manager",
+      "name": "Micro Manager",
+      "world": 4,
+      "theme": "Sleek black flight suit with neon-green tick marks. Built for traders who size small and stay in the game.",
+      "lesson": "Micro futures are one-tenth the size of the E-minis, so you can size positions properly instead of betting the account.",
+      "palette": { "A": "#1B1B1F", "B": "#39D98A", "C": "#E8E8E8" },
+      "bonuses": [
+        { "pieces": 2, "text": "Right-Sized: +5 focus.", "stats": { "focus": 5 }, "effects": [] },
+        { "pieces": 4, "text": "Stay in the Game: once per fight, a knockout leaves you standing at 1 HP.", "stats": { "focus": 2 }, "effects": [ { "type": "last_stand", "value": 1, "text": "Once per fight, a knockout leaves you at 1 HP instead." } ] }
+      ]
+    },
+    {
+      "id": "hedgers-harness",
+      "name": "Hedger's Harness",
+      "world": 4,
+      "theme": "Wheat-gold workwear from the muddy trading pits of old Chicago. Unglamorous. Unbothered.",
+      "lesson": "Hedging with futures shrinks your risk and your upside at the same time: you trade spectacular for steady.",
+      "palette": { "A": "#E3C16F", "B": "#6B4F2A", "C": "#6FA8DC" },
+      "bonuses": [
+        { "pieces": 2, "text": "Locked-In Price: +5 defense.", "stats": { "defense": 5 }, "effects": [] },
+        { "pieces": 4, "text": "Fully Hedged: take 30% less damage and deal 15% less damage. Steady beats spectacular.", "stats": { "defense": 3 }, "effects": [ { "type": "damage_reduction", "value": 30, "text": "Take 30% less damage from every source." }, { "type": "damage_dealt_mod", "value": -15, "text": "Deal 15% less damage." } ] }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "id": "rookie-cap", "name": "Rookie Cap", "slot": "helmet", "set": "rookie-threads", "rarity": "common", "world": 1, "price": 0,
+      "stats": { "power": 0, "defense": 0, "focus": 1, "luck": 0 },
+      "effects": [],
+      "unlock": "starter: every player owns it from signup",
+      "lesson": "Showing up to learn is the first deposit in your knowledge account.",
+      "flavor": "Brim forward. Brim backward. Brim sideways if you're feeling bold."
+    },
+    {
+      "id": "rookie-hoodie", "name": "Rookie Hoodie", "slot": "chest", "set": "rookie-threads", "rarity": "common", "world": 1, "price": 0,
+      "stats": { "power": 0, "defense": 1, "focus": 0, "luck": 0 },
+      "effects": [],
+      "unlock": "starter: every player owns it from signup",
+      "lesson": "You don't need fancy gear to start investing; you need the basics and a little time.",
+      "flavor": "The pocket holds snacks, not spare cash. Yet."
+    },
+    {
+      "id": "rookie-joggers", "name": "Rookie Joggers", "slot": "legs", "set": "rookie-threads", "rarity": "common", "world": 1, "price": 0,
+      "stats": { "power": 1, "defense": 0, "focus": 0, "luck": 0 },
+      "effects": [],
+      "unlock": "starter: every player owns it from signup",
+      "lesson": "Every financial journey starts with comfortable first steps.",
+      "flavor": "Rated for running, lounging and running late."
+    },
+    {
+      "id": "rookie-sneakers", "name": "Rookie Sneakers", "slot": "boots", "set": "rookie-threads", "rarity": "common", "world": 1, "price": 0,
+      "stats": { "power": 0, "defense": 0, "focus": 0, "luck": 1 },
+      "effects": [],
+      "unlock": "starter: every player owns it from signup",
+      "lesson": "Small steps taken consistently beat big steps taken once.",
+      "flavor": "Squeak on every polished floor. Hoot finds this distracting."
+    },
+
+    {
+      "id": "rainy-day-hood", "name": "Rainy-Day Hood", "slot": "helmet", "set": "rainy-day", "rarity": "uncommon", "world": 1, "price": 90,
+      "stats": { "power": 0, "defense": 2, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "telegraph", "value": 0.2, "text": "Boss wind-ups show 0.2 seconds earlier. You can see the storm coming." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Keep emergency money somewhere safe and easy to reach, like a high-yield savings account.",
+      "flavor": "Penny says it's not paranoia if it actually rains."
+    },
+    {
+      "id": "emergency-fund-chestplate", "name": "Emergency Fund Chestplate", "slot": "chest", "set": "rainy-day", "rarity": "rare", "world": 1, "price": 0,
+      "stats": { "power": -1, "defense": 4, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "damage_cap", "value": 25, "text": "No single boss hit can take more than 25% of your max HP." } ],
+      "unlock": "quest: q-w1-three-months-strong",
+      "lesson": "Three to six months of expenses set aside turns a crisis into an inconvenience, even though that cash earns less than investments.",
+      "flavor": "Dented by a surprise car repair. Still standing. That's the point."
+    },
+    {
+      "id": "safety-net-leggings", "name": "Safety-Net Leggings", "slot": "legs", "set": "rainy-day", "rarity": "common", "world": 1, "price": 70,
+      "stats": { "power": 0, "defense": 2, "focus": 0, "luck": 0 },
+      "effects": [ { "type": "buffer_hp", "value": 8, "text": "Start each fight with an 8-HP insured buffer." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "FDIC insurance protects bank deposits up to $250,000 per depositor, per bank, per ownership category.",
+      "flavor": "Woven from genuine government-backed mesh. Up to the limit."
+    },
+    {
+      "id": "puddle-proof-boots", "name": "Puddle-Proof Boots", "slot": "boots", "set": "rainy-day", "rarity": "common", "world": 1, "price": 60,
+      "stats": { "power": 0, "defense": 0, "focus": 1, "luck": 1 },
+      "effects": [ { "type": "dodge", "value": 5, "text": "5% chance to sidestep a boss attack." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Avoiding overdraft fees is money you get to keep.",
+      "flavor": "Stomp through puddles. Do not stomp through your checking balance."
+    },
+
+    {
+      "id": "snowball-helm", "name": "Snowball Helm", "slot": "helmet", "set": "snowball-knight", "rarity": "common", "world": 1, "price": 60,
+      "stats": { "power": 1, "defense": 0, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "heal_on_streak", "value": 4, "text": "Heal 4 HP after 3 correct answers in a row." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Compound interest means you earn interest on your interest, not just on what you put in.",
+      "flavor": "Slightly cold. Warms up as your returns pile up."
+    },
+    {
+      "id": "compound-cuirass", "name": "Compound Cuirass", "slot": "chest", "set": "snowball-knight", "rarity": "uncommon", "world": 1, "price": 100,
+      "stats": { "power": -1, "defense": 2, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "shield_on_correct", "value": 2, "text": "Gain a 2-HP shield after every correct answer. Small, but it keeps stacking." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Compounding is slow at first and powerful later; you trade fast thrills for steady growth.",
+      "flavor": "Each layer was added on top of the last one. Chip calls this 'layer-on-layer action'."
+    },
+    {
+      "id": "rule-of-72-greaves", "name": "Rule-of-72 Greaves", "slot": "legs", "set": "snowball-knight", "rarity": "uncommon", "world": 1, "price": 90,
+      "stats": { "power": 2, "defense": 0, "focus": 0, "luck": 1 },
+      "effects": [ { "type": "periodic_double", "value": 72, "text": "Every 72 seconds, your next hit deals double damage." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Divide 72 by an annual return to estimate how many years it takes your money to double.",
+      "flavor": "72 rivets. Hoot counted. Twice."
+    },
+    {
+      "id": "head-start-sabatons", "name": "Head-Start Sabatons", "slot": "boots", "set": "snowball-knight", "rarity": "rare", "world": 1, "price": 0,
+      "stats": { "power": 0, "defense": 1, "focus": 3, "luck": 0 },
+      "effects": [ { "type": "start_charge", "value": 25, "text": "Start every fight with your weapon 25% charged." } ],
+      "unlock": "quest: q-w1-autopilot-engaged",
+      "lesson": "Starting to invest at 17 instead of 30 can beat investing far more money later, because time does the heavy lifting.",
+      "flavor": "Come pre-broken-in. Your future self says thanks."
+    },
+
+    {
+      "id": "planning-cap", "name": "Ranger's Planning Cap", "slot": "helmet", "set": "budget-ranger", "rarity": "common", "world": 1, "price": 60,
+      "stats": { "power": 0, "defense": 0, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "time_bonus", "value": 3, "text": "+3 seconds on hard questions." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "A budget is a plan for your money made before the month starts, not a guilt trip after it ends.",
+      "flavor": "Has a tiny pencil tucked behind the ear flap."
+    },
+    {
+      "id": "fifty-thirty-twenty-tunic", "name": "50/30/20 Tunic", "slot": "chest", "set": "budget-ranger", "rarity": "uncommon", "world": 1, "price": 100,
+      "stats": { "power": 1, "defense": 1, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "coin_bonus", "value": 5, "text": "+5% coins from quests." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "The 50/30/20 rule: about half your take-home pay to needs, 30% to wants, 20% to savings and debt payoff.",
+      "flavor": "Three pockets, sized exactly 50, 30 and 20. Snacks go in the 30."
+    },
+    {
+      "id": "pay-yourself-first-pants", "name": "Pay-Yourself-First Pants", "slot": "legs", "set": "budget-ranger", "rarity": "uncommon", "world": 1, "price": 90,
+      "stats": { "power": 1, "defense": 0, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "first_strike", "value": 15, "text": "Your first correct answer of each fight deals +15% damage." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Move savings out on payday, automatically, before you have a chance to spend it.",
+      "flavor": "The savings pocket zips shut before the spending pocket even opens."
+    },
+    {
+      "id": "envelope-boots", "name": "Envelope Boots", "slot": "boots", "set": "budget-ranger", "rarity": "common", "world": 1, "price": 60,
+      "stats": { "power": 0, "defense": 1, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "dash_cooldown", "value": 10, "text": "Dash recharges 10% faster." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Envelope budgeting: when a category's money is gone, it's gone until next month.",
+      "flavor": "Each boot holds one envelope. Labeled. Bolt approves."
+    },
+
+    {
+      "id": "wicker-helm", "name": "Wicker Helm", "slot": "helmet", "set": "basket-weaver", "rarity": "common", "world": 1, "price": 60,
+      "stats": { "power": 0, "defense": 1, "focus": 0, "luck": 1 },
+      "effects": [ { "type": "damage_reduction", "value": 2, "text": "Take 2% less damage from every source." } ],
+      "unlock": "shop (World 1, after finishing 'Meet the Asset Classes')",
+      "lesson": "Stocks, bonds, cash and real estate each behave differently, which is exactly why you'd own more than one.",
+      "flavor": "Woven from four different reeds. None of them panic at the same time."
+    },
+    {
+      "id": "many-baskets-jerkin", "name": "Many-Baskets Jerkin", "slot": "chest", "set": "basket-weaver", "rarity": "uncommon", "world": 1, "price": 100,
+      "stats": { "power": 0, "defense": 2, "focus": 0, "luck": 1 },
+      "effects": [ { "type": "damage_reduction", "value": 3, "text": "Take 3% less damage from every source." } ],
+      "unlock": "shop (World 1, after finishing 'Diversification: Many Baskets')",
+      "lesson": "Diversification lowers the swings of the whole portfolio without needing to give up much return.",
+      "flavor": "Twelve little baskets sewn on. One egg each. Hoot did the math."
+    },
+    {
+      "id": "patchwork-trousers", "name": "Patchwork Trousers", "slot": "legs", "set": "basket-weaver", "rarity": "uncommon", "world": 1, "price": 90,
+      "stats": { "power": 1, "defense": 1, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "damage_reduction", "value": 2, "text": "Take 2% less damage from every source." } ],
+      "unlock": "shop (World 1, after finishing 'Diversification: Many Baskets')",
+      "lesson": "Rebalancing means trimming what grew and topping up what shrank, so your mix stays the way you planned.",
+      "flavor": "Every patch is a different fabric. The tailor called it 'rebalanced'."
+    },
+    {
+      "id": "nest-egg-boots", "name": "Nest-Egg Boots", "slot": "boots", "set": "basket-weaver", "rarity": "common", "world": 1, "price": 60,
+      "stats": { "power": 1, "defense": 1, "focus": 0, "luck": 0 },
+      "effects": [ { "type": "damage_reduction", "value": 2, "text": "Take 2% less damage from every source." } ],
+      "unlock": "shop (World 1, after finishing 'Meet the Asset Classes')",
+      "lesson": "A nest egg built from many sources is harder to crack than one built on a single bet.",
+      "flavor": "Padded with straw. Smell faintly of farm. Very stable."
+    },
+
+    {
+      "id": "intrinsic-visor", "name": "Intrinsic Visor", "slot": "helmet", "set": "value-vanguard", "rarity": "uncommon", "world": 2, "price": 200,
+      "stats": { "power": 0, "defense": 2, "focus": 3, "luck": 0 },
+      "effects": [ { "type": "hint", "value": 1, "text": "Once per fight, remove 1 wrong answer. See through the price to the value." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Intrinsic value is what a business is worth based on the cash it will produce, which can differ wildly from today's price.",
+      "flavor": "Filters out ticker noise. Lets the cash flows through."
+    },
+    {
+      "id": "margin-of-safety-plate", "name": "Margin-of-Safety Plate", "slot": "chest", "set": "value-vanguard", "rarity": "epic", "world": 2, "price": 0,
+      "stats": { "power": 2, "defense": 5, "focus": 0, "luck": 0 },
+      "effects": [ { "type": "buffer_hp", "value": 20, "text": "Start each fight with a 20-HP buffer. Room to be wrong." } ],
+      "unlock": "boss drop: boss-w2-mr-market (guaranteed on first win)",
+      "lesson": "Buying well below your value estimate leaves room for your estimate to be wrong.",
+      "flavor": "Twice as thick as it needs to be. That's the whole idea."
+    },
+    {
+      "id": "moat-tassets", "name": "Moat Tassets", "slot": "legs", "set": "value-vanguard", "rarity": "uncommon", "world": 2, "price": 200,
+      "stats": { "power": 2, "defense": 3, "focus": 0, "luck": 0 },
+      "effects": [ { "type": "thorns", "value": 10, "text": "Reflect 10% of damage taken back at the boss." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "An economic moat, like a strong brand or network effect, makes it painful for competitors to attack a company's profits.",
+      "flavor": "Comes with a tiny decorative drawbridge. Non-functional. Very cute."
+    },
+    {
+      "id": "patient-loafers", "name": "Patient Loafers", "slot": "boots", "set": "value-vanguard", "rarity": "common", "world": 2, "price": 150,
+      "stats": { "power": -1, "defense": 2, "focus": 3, "luck": 0 },
+      "effects": [ { "type": "time_bonus", "value": 4, "text": "+4 seconds on hard questions." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Mr. Market offers a new price every day; you're allowed to ignore him until the price is right.",
+      "flavor": "Designed for standing still for very long periods. Surprisingly comfy."
+    },
+
+    {
+      "id": "sentinel-sallet", "name": "Sentinel Sallet", "slot": "helmet", "set": "stop-loss-sentinel", "rarity": "common", "world": 2, "price": 150,
+      "stats": { "power": 0, "defense": 3, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "telegraph", "value": 0.2, "text": "Boss wind-ups show 0.2 seconds earlier." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Know where you'll get out before you get in.",
+      "flavor": "The visor has a red line painted at exactly 2%. Grizz insisted."
+    },
+    {
+      "id": "position-size-brigandine", "name": "Position-Size Brigandine", "slot": "chest", "set": "stop-loss-sentinel", "rarity": "uncommon", "world": 2, "price": 200,
+      "stats": { "power": 0, "defense": 3, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "damage_reduction", "value": 15, "text": "Take 15% less damage." }, { "type": "damage_dealt_mod", "value": -10, "text": "Deal 10% less damage." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Position size = dollars you're willing to lose divided by the distance to your stop; smaller size shrinks gains and losses alike.",
+      "flavor": "Made of many small plates instead of one big one. Fewer ways to lose it all."
+    },
+    {
+      "id": "two-percent-greaves", "name": "Two-Percent Greaves", "slot": "legs", "set": "stop-loss-sentinel", "rarity": "uncommon", "world": 2, "price": 200,
+      "stats": { "power": 1, "defense": 1, "focus": 3, "luck": 0 },
+      "effects": [ { "type": "shield_on_correct", "value": 3, "text": "Gain a 3-HP shield after every correct answer." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Risking 1-2% of your account per trade means a losing streak stings but doesn't end you.",
+      "flavor": "You could lose ten fights in a row in these and still walk home."
+    },
+    {
+      "id": "trailing-stop-treads", "name": "Trailing-Stop Treads", "slot": "boots", "set": "stop-loss-sentinel", "rarity": "rare", "world": 2, "price": 0,
+      "stats": { "power": 0, "defense": 2, "focus": 3, "luck": 1 },
+      "effects": [ { "type": "heal_on_streak", "value": 5, "text": "Heal 5 HP after 3 correct answers in a row. Lock in your gains." } ],
+      "unlock": "quest: q-w2-journal-ten",
+      "lesson": "A trailing stop moves up as price rises, locking in gains while giving a winner room to run.",
+      "flavor": "They follow you everywhere. In a helpful way."
+    },
+
+    {
+      "id": "day-trader-visor", "name": "Day-Trader Visor", "slot": "helmet", "set": "day-trader", "rarity": "common", "world": 2, "price": 150,
+      "stats": { "power": 3, "defense": -2, "focus": 0, "luck": 3 },
+      "effects": [ { "type": "first_strike", "value": 25, "text": "Your first correct answer each fight deals +25% damage." }, { "type": "hp_cost", "value": 2, "text": "Lose 2% of max HP at the start of each fight (commissions)." } ],
+      "unlock": "shop (World 2, after finishing 'Day, Swing, Position or Invest?')",
+      "lesson": "Most day traders lose money over time; speed amplifies results in both directions and costs add up.",
+      "flavor": "Six screens projected onto one visor. Blinking is discouraged."
+    },
+    {
+      "id": "scalpers-jacket", "name": "Scalper's Jacket", "slot": "chest", "set": "day-trader", "rarity": "uncommon", "world": 2, "price": 200,
+      "stats": { "power": 4, "defense": -1, "focus": 0, "luck": 2 },
+      "effects": [ { "type": "dodge", "value": 8, "text": "8% chance to dodge a boss attack." }, { "type": "hp_cost", "value": 2, "text": "Lose 2% of max HP at the start of each fight (spreads)." } ],
+      "unlock": "shop (World 2, after finishing 'Day, Swing, Position or Invest?')",
+      "lesson": "Scalpers chase tiny moves many times a day, so the bid-ask spread is a cost they pay over and over.",
+      "flavor": "Forty-two pockets. All of them have receipts for fees."
+    },
+    {
+      "id": "momentum-shorts", "name": "Momentum Shorts", "slot": "legs", "set": "day-trader", "rarity": "uncommon", "world": 2, "price": 200,
+      "stats": { "power": 4, "defense": 0, "focus": -1, "luck": 2 },
+      "effects": [ { "type": "streak_damage", "value": 5, "text": "+5% damage per consecutive correct answer (up to 5 stacks)." }, { "type": "hp_cost", "value": 2, "text": "Lose 2% of max HP at the start of each fight (slippage)." } ],
+      "unlock": "shop (World 2, after finishing 'Trends: Stairs Up, Stairs Down')",
+      "lesson": "Momentum can carry a price further than expected, and reverses just as suddenly.",
+      "flavor": "Built for going fast in one direction. Turning is a separate purchase."
+    },
+    {
+      "id": "fast-fill-sneakers", "name": "Fast-Fill Sneakers", "slot": "boots", "set": "day-trader", "rarity": "common", "world": 2, "price": 150,
+      "stats": { "power": 2, "defense": -1, "focus": 0, "luck": 3 },
+      "effects": [ { "type": "dash_cooldown", "value": 20, "text": "Dash recharges 20% faster." }, { "type": "hp_cost", "value": 2, "text": "Lose 2% of max HP at the start of each fight (fees)." } ],
+      "unlock": "shop (World 2, after finishing 'Order Types: Telling Your Broker Exactly What You Want')",
+      "lesson": "A market order fills fast but at whatever price is available; speed has a price called slippage.",
+      "flavor": "Zero to sixty. Sixty back to zero. Also fast."
+    },
+
+    {
+      "id": "strike-price-circlet", "name": "Strike-Price Circlet", "slot": "helmet", "set": "covered-caller", "rarity": "common", "world": 3, "price": 250,
+      "stats": { "power": 0, "defense": 2, "focus": 4, "luck": 0 },
+      "effects": [ { "type": "first_strike", "value": 20, "text": "Your first correct answer each fight deals +20% damage." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "The strike price is the price at which an option lets its owner buy or sell the stock.",
+      "flavor": "Engraved with a number you agreed to. Hope you meant it."
+    },
+    {
+      "id": "covered-call-coat", "name": "Covered-Call Coat", "slot": "chest", "set": "covered-caller", "rarity": "uncommon", "world": 3, "price": 330,
+      "stats": { "power": -1, "defense": 4, "focus": 4, "luck": 0 },
+      "effects": [ { "type": "heal_on_streak", "value": 6, "text": "Heal 6 HP after 3 correct answers in a row." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "Owning 100 shares and selling a call against them is 'renting out' your shares for premium income.",
+      "flavor": "Very warm. Pockets full of small premiums. No room for a rocket."
+    },
+    {
+      "id": "income-leggings", "name": "Income Leggings", "slot": "legs", "set": "covered-caller", "rarity": "uncommon", "world": 3, "price": 330,
+      "stats": { "power": 0, "defense": 3, "focus": 4, "luck": 0 },
+      "effects": [ { "type": "coin_bonus", "value": 5, "text": "+5% coins from quests." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "Option premium is income you keep whether or not the option gets exercised.",
+      "flavor": "Every step jingles a little. That's the premium."
+    },
+    {
+      "id": "wheel-boots", "name": "Wheel Boots", "slot": "boots", "set": "covered-caller", "rarity": "rare", "world": 3, "price": 0,
+      "stats": { "power": 2, "defense": 2, "focus": 4, "luck": 0 },
+      "effects": [ { "type": "dodge", "value": 8, "text": "8% chance to spin out of a boss attack." } ],
+      "unlock": "quest: q-w3-the-wheel",
+      "lesson": "The wheel: sell cash-secured puts until assigned, then sell covered calls until called away, and repeat.",
+      "flavor": "Round and round. Profitable, mostly. Dizzying, always."
+    },
+
+    {
+      "id": "insurance-helm", "name": "Insurance Helm", "slot": "helmet", "set": "protective-put", "rarity": "common", "world": 3, "price": 250,
+      "stats": { "power": 0, "defense": 5, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "hp_cost", "value": 3, "text": "Lose 3% of max HP at the start of each fight (the premium)." }, { "type": "damage_reduction", "value": 8, "text": "Take 8% less damage." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "A put option gives you the right to sell at the strike, putting a floor under your losses for a price.",
+      "flavor": "The fine print is printed on the inside. Read it before the fight."
+    },
+    {
+      "id": "policyholder-plate", "name": "Policyholder Plate", "slot": "chest", "set": "protective-put", "rarity": "epic", "world": 3, "price": 0,
+      "stats": { "power": 3, "defense": 6, "focus": 0, "luck": 0 },
+      "effects": [ { "type": "second_chance", "value": 1, "text": "Once per fight, a wrong answer becomes a miss. Your policy pays one claim." } ],
+      "unlock": "boss drop: boss-w3-theta-reaper (guaranteed on first win)",
+      "lesson": "Insurance always costs something; the question is whether the protection is worth the premium.",
+      "flavor": "Pried from the Theta Reaper's hourglass. Still ticking faintly."
+    },
+    {
+      "id": "strike-guard-greaves", "name": "Strike-Guard Greaves", "slot": "legs", "set": "protective-put", "rarity": "uncommon", "world": 3, "price": 330,
+      "stats": { "power": 0, "defense": 5, "focus": 0, "luck": 2 },
+      "effects": [ { "type": "damage_cap", "value": 20, "text": "No single boss hit can take more than 20% of your max HP." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "A put struck closer to the current price protects more and costs more; a farther strike is cheaper but leaves a bigger gap.",
+      "flavor": "Adjustable height. Higher protection, higher price tag."
+    },
+    {
+      "id": "expiry-boots", "name": "Expiry Boots", "slot": "boots", "set": "protective-put", "rarity": "common", "world": 3, "price": 250,
+      "stats": { "power": 0, "defense": 3, "focus": 3, "luck": 0 },
+      "effects": [ { "type": "time_bonus", "value": 5, "text": "+5 seconds on hard questions." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "Options expire; time decay (theta) eats a little of their value every single day.",
+      "flavor": "Stamped with a date. Walk fast."
+    },
+
+    {
+      "id": "tick-size-helmet", "name": "Tick-Size Helmet", "slot": "helmet", "set": "micro-manager", "rarity": "common", "world": 4, "price": 350,
+      "stats": { "power": 0, "defense": 4, "focus": 4, "luck": 0 },
+      "effects": [ { "type": "shield_on_correct", "value": 3, "text": "Gain a 3-HP shield after every correct answer." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "One tick on the Micro E-mini S&P (MES) is worth $1.25; on the full E-mini (ES) it's $12.50.",
+      "flavor": "The HUD shows your P&L in ticks and dollars. Mostly dollars. Gulp."
+    },
+    {
+      "id": "micro-contract-mail", "name": "Micro-Contract Mail", "slot": "chest", "set": "micro-manager", "rarity": "uncommon", "world": 4, "price": 450,
+      "stats": { "power": 2, "defense": 3, "focus": 4, "luck": 0 },
+      "effects": [ { "type": "damage_cap", "value": 15, "text": "No single boss hit can take more than 15% of your max HP." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Micros let a small account trade index futures at one-tenth the size, so one bad day isn't the last day.",
+      "flavor": "Ten tiny rings where one big ring used to be. Flexibility is the flex."
+    },
+    {
+      "id": "mark-to-market-leggings", "name": "Mark-to-Market Leggings", "slot": "legs", "set": "micro-manager", "rarity": "uncommon", "world": 4, "price": 450,
+      "stats": { "power": 0, "defense": 5, "focus": 4, "luck": 0 },
+      "effects": [ { "type": "heal_on_streak", "value": 8, "text": "Heal 8 HP after 3 correct answers in a row. Settled daily." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Futures gains and losses settle in cash every day, so losses hit your account before you ever 'sell'.",
+      "flavor": "Tallies the score every night whether you like it or not."
+    },
+    {
+      "id": "right-size-boots", "name": "Right-Size Boots", "slot": "boots", "set": "micro-manager", "rarity": "rare", "world": 4, "price": 0,
+      "stats": { "power": 2, "defense": 3, "focus": 5, "luck": 0 },
+      "effects": [ { "type": "damage_reduction", "value": 8, "text": "Take 8% less damage." } ],
+      "unlock": "quest: q-w4-right-size",
+      "lesson": "Size so a normal bad day costs a small, planned slice of your account.",
+      "flavor": "Not too big. Not too small. Goldilocks would trade micros."
+    },
+
+    {
+      "id": "farmers-wide-brim", "name": "Farmer's Wide-Brim", "slot": "helmet", "set": "hedgers-harness", "rarity": "common", "world": 4, "price": 350,
+      "stats": { "power": 0, "defense": 5, "focus": 3, "luck": 0 },
+      "effects": [ { "type": "telegraph", "value": 0.3, "text": "Boss wind-ups show 0.3 seconds earlier. Farmers watch the sky." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Hedgers, like farmers and airlines, use futures to lock in prices, not to gamble on them.",
+      "flavor": "Keeps off sun, rain and the occasional flying soybean."
+    },
+    {
+      "id": "hedgers-vest", "name": "Hedger's Vest", "slot": "chest", "set": "hedgers-harness", "rarity": "epic", "world": 4, "price": 0,
+      "stats": { "power": 4, "defense": 8, "focus": 0, "luck": -1 },
+      "effects": [ { "type": "thorns", "value": 20, "text": "Reflect 20% of damage taken back at the boss. When you lose, your hedge gains." } ],
+      "unlock": "boss drop: boss-w4-margin-caller (guaranteed on first win)",
+      "lesson": "A short index-futures hedge gains when your stock portfolio loses, and gives up gains when it rises.",
+      "flavor": "Taken from the Margin Caller's coat rack. He didn't call ahead either."
+    },
+    {
+      "id": "basis-breeches", "name": "Basis Breeches", "slot": "legs", "set": "hedgers-harness", "rarity": "uncommon", "world": 4, "price": 450,
+      "stats": { "power": 0, "defense": 4, "focus": 3, "luck": 2 },
+      "effects": [ { "type": "dodge", "value": 6, "text": "6% chance to dodge a boss attack." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Basis is the gap between the futures price and the index; it shrinks to zero at expiration.",
+      "flavor": "Two legs, slightly different lengths, that end up the same length by the end of the month."
+    },
+    {
+      "id": "muddy-chicago-boots", "name": "Muddy Chicago Boots", "slot": "boots", "set": "hedgers-harness", "rarity": "uncommon", "world": 4, "price": 450,
+      "stats": { "power": 2, "defense": 5, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "time_bonus", "value": 4, "text": "+4 seconds on hard questions." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Futures began in 1800s Chicago so grain farmers and buyers could agree on prices before harvest.",
+      "flavor": "The mud is historical. Please don't clean it."
+    },
+
+    {
+      "id": "trusty-calculator", "name": "Trusty Calculator", "slot": "weapon", "set": null, "rarity": "common", "world": 1, "price": 0,
+      "stats": { "power": 1, "defense": 0, "focus": 1, "luck": 0 },
+      "palette": { "A": "#5C6670", "B": "#D9DEE3", "C": "#F28C28" },
+      "effects": [],
+      "unlock": "starter: every player owns it from signup",
+      "lesson": "Doing the math yourself is the most underrated money skill there is.",
+      "flavor": "Solar powered. Slightly sticky 7 key."
+    },
+    {
+      "id": "budget-blade", "name": "Budget Blade", "slot": "weapon", "set": null, "rarity": "uncommon", "world": 1, "price": 120,
+      "stats": { "power": 3, "defense": -1, "focus": 1, "luck": 0 },
+      "palette": { "A": "#3E8E5E", "B": "#E0E4E8", "C": "#C9A66B" },
+      "effects": [ { "type": "hint", "value": 1, "text": "Once per fight, cut 1 wrong answer from a question. Trim the waste." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Cutting spending you don't value frees money for things you do.",
+      "flavor": "Cuts expenses. Also slimes."
+    },
+    {
+      "id": "compound-crossbow", "name": "Compound Crossbow", "slot": "weapon", "set": null, "rarity": "rare", "world": 1, "price": 180,
+      "stats": { "power": 3, "defense": 0, "focus": 1, "luck": 0 },
+      "palette": { "A": "#7EC8E3", "B": "#6B4F2A", "C": "#E8B04B" },
+      "effects": [ { "type": "streak_damage", "value": 5, "text": "+5% damage per consecutive correct answer (up to 5 stacks)." } ],
+      "unlock": "shop (World 1, after finishing 'Compounding: The Head-Start Superpower')",
+      "lesson": "Compounding rewards whoever leaves their money invested the longest without interruption.",
+      "flavor": "Patience loaded. Aim required."
+    },
+    {
+      "id": "piggy-mallet", "name": "Penny's Piggy Mallet", "slot": "weapon", "set": null, "rarity": "epic", "world": 1, "price": 0,
+      "stats": { "power": 5, "defense": 0, "focus": -1, "luck": 1 },
+      "palette": { "A": "#F4A7B9", "B": "#B5838D", "C": "#F2C14E" },
+      "effects": [ { "type": "crit_damage", "value": 25, "text": "Critical hits deal +25% damage." } ],
+      "unlock": "boss drop: boss-w1-inflato (guaranteed on first win)",
+      "lesson": "Saved money beats inflation only when it's put to work earning more than prices rise.",
+      "flavor": "Penny swears no piggy banks were harmed. It is, technically, a piggy bank."
+    },
+    {
+      "id": "bull-horn-lance", "name": "Bull-Horn Lance", "slot": "weapon", "set": null, "rarity": "uncommon", "world": 2, "price": 220,
+      "stats": { "power": 5, "defense": -1, "focus": 0, "luck": 1 },
+      "palette": { "A": "#2FA36B", "B": "#F5F7FA", "C": "#E8B04B" },
+      "effects": [ { "type": "crit_damage", "value": 20, "text": "Critical hits deal +20% damage." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Bull markets reward conviction, but even strong trends end; ride them with a plan for the reversal.",
+      "flavor": "Chip's horns, polished and pointy. He wants them back by Friday."
+    },
+    {
+      "id": "moving-average-bow", "name": "Moving-Average Bow", "slot": "weapon", "set": null, "rarity": "rare", "world": 2, "price": 300,
+      "stats": { "power": 4, "defense": 0, "focus": 3, "luck": -1 },
+      "palette": { "A": "#4B3F72", "B": "#C0C7D1", "C": "#F39C12" },
+      "effects": [ { "type": "steady", "value": 0, "text": "Damage can't vary: no crits and no glancing blows. Smooth, a little slow." } ],
+      "unlock": "shop (World 2, after finishing 'Moving Averages: Smoothing the Noise')",
+      "lesson": "Moving averages smooth out noise but always lag behind the price.",
+      "flavor": "Always a little late. Never flustered."
+    },
+    {
+      "id": "delta-daggers", "name": "Delta Daggers", "slot": "weapon", "set": null, "rarity": "uncommon", "world": 3, "price": 340,
+      "stats": { "power": 4, "defense": 0, "focus": 2, "luck": 1 },
+      "palette": { "A": "#1F8A8A", "B": "#F3E9D2", "C": "#E76F51" },
+      "effects": [ { "type": "streak_damage", "value": 6, "text": "+6% damage per consecutive correct answer (up to 5 stacks). The faster you go, the faster you speed up." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "Delta measures how much an option moves per $1 move in the stock; gamma measures how fast delta itself changes.",
+      "flavor": "Two blades. Twice the Greek."
+    },
+    {
+      "id": "theta-scythe", "name": "Theta Scythe", "slot": "weapon", "set": null, "rarity": "rare", "world": 3, "price": 450,
+      "stats": { "power": 6, "defense": 0, "focus": 3, "luck": -1 },
+      "palette": { "A": "#1D3557", "B": "#A8DADC", "C": "#F4A261" },
+      "effects": [ { "type": "damage_over_time", "value": 20, "text": "Hits deal an extra 20% of their damage over the next 5 seconds." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "Time decay works against option buyers and for option sellers, a little every day.",
+      "flavor": "Tick. Tock. Ouch."
+    },
+    {
+      "id": "tick-value-trident", "name": "Tick-Value Trident", "slot": "weapon", "set": null, "rarity": "uncommon", "world": 4, "price": 460,
+      "stats": { "power": 6, "defense": 0, "focus": 3, "luck": 0 },
+      "palette": { "A": "#1B1B1F", "B": "#39D98A", "C": "#E8E8E8" },
+      "effects": [ { "type": "first_strike", "value": 25, "text": "Your first correct answer each fight deals +25% damage." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Every futures contract has a fixed dollar value per tick, so you can know your risk before you enter.",
+      "flavor": "Three prongs: ES, NQ, YM. Micros sold separately. (Kidding. Same shop.)"
+    },
+    {
+      "id": "mark-to-market-maul", "name": "Mark-to-Market Maul", "slot": "weapon", "set": null, "rarity": "rare", "world": 4, "price": 620,
+      "stats": { "power": 9, "defense": 2, "focus": -1, "luck": 0 },
+      "palette": { "A": "#6B4F2A", "B": "#E3C16F", "C": "#C0392B" },
+      "effects": [ { "type": "crit_damage", "value": 30, "text": "Critical hits deal +30% damage." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Futures accounts settle daily: gains and losses are added or taken in cash at each day's close.",
+      "flavor": "Settles all debts. Daily."
+    },
+
+    {
+      "id": "piggy-bank-buckler", "name": "Piggy-Bank Buckler", "slot": "offhand", "set": null, "rarity": "common", "world": 1, "price": 70,
+      "stats": { "power": 0, "defense": 2, "focus": 0, "luck": 0 },
+      "palette": { "A": "#F4A7B9", "B": "#B5838D", "C": "#2B3A67" },
+      "effects": [ { "type": "damage_reduction", "value": 4, "text": "Take 4% less damage." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "A savings account is your first shield: boring, safe and always there.",
+      "flavor": "Coin slot doubles as a peephole."
+    },
+    {
+      "id": "ledger-lantern", "name": "Ledger Lantern", "slot": "offhand", "set": null, "rarity": "uncommon", "world": 1, "price": 100,
+      "stats": { "power": 0, "defense": 0, "focus": 2, "luck": 1 },
+      "palette": { "A": "#C9A66B", "B": "#2E2E38", "C": "#F2C14E" },
+      "effects": [ { "type": "telegraph", "value": 0.3, "text": "Boss wind-ups show 0.3 seconds earlier." } ],
+      "unlock": "shop (World 1)",
+      "lesson": "Tracking your spending shows where your money is going before it's gone.",
+      "flavor": "Fueled by receipts. Smells faintly of coffee you didn't need."
+    },
+    {
+      "id": "moat-shield", "name": "Moat Shield", "slot": "offhand", "set": null, "rarity": "uncommon", "world": 2, "price": 220,
+      "stats": { "power": 0, "defense": 4, "focus": 1, "luck": 0 },
+      "palette": { "A": "#4B3F72", "B": "#6FA8DC", "C": "#C0C7D1" },
+      "effects": [ { "type": "damage_reduction", "value": 8, "text": "Take 8% less damage." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Companies with wide moats can fend off competitors and keep earning high returns for years.",
+      "flavor": "There's a small moat around the rim. A tiny fish lives there. His name is Warren."
+    },
+    {
+      "id": "trading-journal-tome", "name": "Trading Journal Tome", "slot": "offhand", "set": null, "rarity": "uncommon", "world": 2, "price": 200,
+      "stats": { "power": 0, "defense": 1, "focus": 4, "luck": 0 },
+      "palette": { "A": "#8C3B2E", "B": "#F3E9D2", "C": "#2E2E38" },
+      "effects": [ { "type": "review_queue", "value": 5, "text": "After each fight, up to 5 missed questions go into your review queue." }, { "type": "xp_bonus", "value": 10, "text": "+10% XP from battles." } ],
+      "unlock": "shop (World 2, after finishing 'Journal, Backtest, Paper Trade')",
+      "lesson": "Traders who journal every trade learn from their mistakes instead of repeating them.",
+      "flavor": "Page one: 'Note to self: stop doing that.'"
+    },
+    {
+      "id": "spread-shield", "name": "Spread Shield", "slot": "offhand", "set": null, "rarity": "rare", "world": 3, "price": 420,
+      "stats": { "power": 0, "defense": 6, "focus": 2, "luck": 0 },
+      "palette": { "A": "#1D3557", "B": "#F3E9D2", "C": "#E76F51" },
+      "effects": [ { "type": "damage_cap", "value": 15, "text": "No single boss hit can take more than 15% of your max HP." }, { "type": "damage_dealt_mod", "value": -10, "text": "Deal 10% less damage." } ],
+      "unlock": "shop (World 3)",
+      "lesson": "A vertical spread caps both your maximum loss and your maximum gain.",
+      "flavor": "Two layers, bolted together at the strikes."
+    },
+    {
+      "id": "margin-buffer-tower", "name": "Margin-Buffer Tower Shield", "slot": "offhand", "set": null, "rarity": "rare", "world": 4, "price": 600,
+      "stats": { "power": 0, "defense": 8, "focus": 2, "luck": 0 },
+      "palette": { "A": "#2E2E38", "B": "#39D98A", "C": "#C0392B" },
+      "effects": [ { "type": "buffer_hp", "value": 20, "text": "Start each fight with a 20-HP margin buffer." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Keeping cash well above maintenance margin is what stops a normal dip from becoming a margin call.",
+      "flavor": "Heavy, tall and extremely unexciting. Exactly like good risk management."
+    },
+
+    {
+      "id": "correlation-charm", "name": "Correlation Charm", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 1, "price": 150,
+      "stats": { "power": 0, "defense": 1, "focus": 1, "luck": 1 },
+      "palette": { "A": "#C9A66B", "B": "#3E8E5E", "C": "#F4A7B9" },
+      "effects": [ { "type": "mix_bonus", "value": 2, "text": "+2 to every stat if your 4 armor pieces come from at least 3 different sets." } ],
+      "unlock": "shop (World 1, after finishing 'Diversification: Many Baskets')",
+      "lesson": "Diversification works best when your holdings don't all move together (low correlation).",
+      "flavor": "Four tiny charms that never agree on anything. Perfect."
+    },
+    {
+      "id": "patience-charm", "name": "Patience Charm", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 1, "price": 130,
+      "stats": { "power": 0, "defense": 1, "focus": 2, "luck": 0 },
+      "palette": { "A": "#6FA8DC", "B": "#F5F7FA", "C": "#E8B04B" },
+      "effects": [ { "type": "charge_hold", "value": 0, "text": "Your weapon charge never fades while you wait for an opening." } ],
+      "unlock": "shop (World 1, after finishing 'Dollar-Cost Averaging and Staying Put')",
+      "lesson": "Time in the market beats timing the market; steady automatic investing keeps you in the game.",
+      "flavor": "Does nothing quickly. On purpose."
+    },
+    {
+      "id": "index-autopilot-amulet", "name": "Index Autopilot Amulet", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 1, "price": 140,
+      "stats": { "power": 2, "defense": 1, "focus": 0, "luck": -1 },
+      "palette": { "A": "#2B3A67", "B": "#7EC8E3", "C": "#F5F7FA" },
+      "effects": [ { "type": "steady", "value": 0, "text": "Damage can't vary: no crits and no glancing blows. You get the market's return, every time." } ],
+      "unlock": "shop (World 1, after finishing 'The Index Fund Income Engine')",
+      "lesson": "An index fund gives you the whole market's return at a tiny cost, instead of betting on picking winners.",
+      "flavor": "Bolt built it. It has exactly one setting."
+    },
+    {
+      "id": "fee-free-feather", "name": "Fee-Free Feather", "slot": "trinket", "set": null, "rarity": "common", "world": 1, "price": 70,
+      "stats": { "power": 0, "defense": 0, "focus": 1, "luck": 1 },
+      "palette": { "A": "#F5F7FA", "B": "#7EC8E3", "C": "#3E8E5E" },
+      "effects": [ { "type": "coin_bonus", "value": 5, "text": "+5% coins from quests. Fewer leaks, more kept." } ],
+      "unlock": "shop (World 1, after finishing 'Funds, ETFs, and the Fee Leak')",
+      "lesson": "A fund fee of 1% instead of 0.05% can quietly eat a big chunk of your money over decades.",
+      "flavor": "Weighs nothing. Saves plenty."
+    },
+    {
+      "id": "scam-radar-ring", "name": "Scam Radar Ring", "slot": "trinket", "set": null, "rarity": "rare", "world": 1, "price": 0,
+      "stats": { "power": 0, "defense": 2, "focus": 1, "luck": 1 },
+      "palette": { "A": "#8C3B2E", "B": "#C0C7D1", "C": "#C0392B" },
+      "effects": [ { "type": "second_chance", "value": 1, "text": "Once per fight, a wrong answer becomes a miss. The ring buzzed in time." } ],
+      "unlock": "quest: q-w1-grizz-gauntlet",
+      "lesson": "Guaranteed high returns, pressure to act now and secrecy are the classic red flags of a scam.",
+      "flavor": "Buzzes whenever someone says 'guaranteed returns'. It buzzes a lot online."
+    },
+    {
+      "id": "lucky-penny", "name": "Lucky Penny", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 1, "price": 0,
+      "stats": { "power": 0, "defense": 0, "focus": 0, "luck": 3 },
+      "palette": { "A": "#B87333", "B": "#6B4F2A", "C": "#F2C14E" },
+      "effects": [ { "type": "crit_damage", "value": 10, "text": "Critical hits deal +10% damage. Luck helps a little; it is not a plan." } ],
+      "unlock": "achievement: streak_7 (Week Warrior)",
+      "lesson": "Luck is real in markets over short periods, but skill and process are what you control.",
+      "flavor": "Penny's cousin. Distant. Very shiny."
+    },
+    {
+      "id": "mr-markets-mood-ring", "name": "Mr. Market's Mood Ring", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 2, "price": 240,
+      "stats": { "power": 0, "defense": 0, "focus": 3, "luck": 2 },
+      "palette": { "A": "#4B3F72", "B": "#F39C12", "C": "#2FA36B" },
+      "effects": [ { "type": "dodge", "value": 5, "text": "5% chance to dodge. You can read the boss's mood." } ],
+      "unlock": "shop (World 2)",
+      "lesson": "Market prices swing with fear and greed far more than the underlying businesses change.",
+      "flavor": "Currently: euphoric. Check back in five minutes."
+    },
+    {
+      "id": "greeks-monocle", "name": "Greeks Monocle", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 3, "price": 330,
+      "stats": { "power": 0, "defense": 0, "focus": 5, "luck": 2 },
+      "palette": { "A": "#1F8A8A", "B": "#E8B04B", "C": "#1D3557" },
+      "effects": [ { "type": "telegraph", "value": 0.3, "text": "Boss wind-ups show 0.3 seconds earlier. You can see the acceleration." } ],
+      "unlock": "shop (World 3, after finishing 'Vega, Rho & the Full Picture')",
+      "lesson": "The Greeks (delta, gamma, theta, vega) tell you how an option's price will react to changes.",
+      "flavor": "Hoot wears it ironically. Then unironically."
+    },
+    {
+      "id": "contango-compass", "name": "Contango Compass", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 4, "price": 450,
+      "stats": { "power": 0, "defense": 2, "focus": 5, "luck": 2 },
+      "palette": { "A": "#6B4F2A", "B": "#6FA8DC", "C": "#E3C16F" },
+      "effects": [ { "type": "buff_extend", "value": 15, "text": "Once per fight, roll one timed effect forward by 15 seconds." } ],
+      "unlock": "shop (World 4)",
+      "lesson": "Rolling a futures position to the next contract can cost or earn money depending on the shape of the futures curve.",
+      "flavor": "Always points to next month."
+    },
+    {
+      "id": "grand-champion-crest", "name": "Grand Champion Crest", "slot": "trinket", "set": null, "rarity": "legendary", "world": 4, "price": 0,
+      "stats": { "power": 3, "defense": 3, "focus": 3, "luck": 3 },
+      "palette": { "A": "#E8B04B", "B": "#4B3F72", "C": "#F5F7FA" },
+      "effects": [ { "type": "xp_bonus", "value": 10, "text": "+10% XP from battles." } ],
+      "unlock": "achievement: all_units (Grand Champion)",
+      "lesson": "Real financial confidence comes from understanding the whole system, from savings accounts to futures.",
+      "flavor": "Earned, never bought. There's no price tag. Literally."
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+/* ============================================================
+   TradeIQ — game.css   Hideout: avatar stage, gear, shop, look editor.
+   ============================================================ */
+
+.hideout-grid { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 22px; align-items: start; }
+@media (max-width: 900px) { .hideout-grid { grid-template-columns: 1fr; } }
+.big-coins { font-size: 18px; padding: 8px 14px 8px 10px; }
+
+.stage { text-align: center; position: sticky; top: 90px; }
+@media (max-width: 900px) { .stage { position: static; } }
+.stage-floor {
+  position: relative; margin: -6px -6px 16px; padding: 22px 0 14px;
+  border-radius: 12px; border: var(--b-thin);
+  background:
+    linear-gradient(transparent 78%, rgba(23, 20, 15, 0.08) 78%),
+    repeating-linear-gradient(90deg, #d9ecff 0 24px, #cfe5ff 24px 48px);
+}
+.stage-floor::after {
+  content: ''; position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  width: 150px; height: 16px; border-radius: 50%; background: rgba(23, 20, 15, 0.18); z-index: 0;
+}
+.stage-floor .avatar-svg { position: relative; z-index: 1; animation: bob 3s ease-in-out infinite; }
+.stage-floor.previewing { outline: 3px dashed var(--grape); outline-offset: -6px; }
+
+.stat-bars { display: grid; gap: 8px; text-align: left; margin-bottom: 14px; }
+.stat-bar { display: grid; grid-template-columns: 96px 1fr 28px; gap: 8px; align-items: center; font-weight: 700; font-size: 14px; }
+.sb-label { display: inline-flex; gap: 6px; align-items: center; }
+.sb-track { height: 12px; border: var(--b-thin); border-radius: 999px; background: #fff; overflow: hidden; }
+.sb-track span { display: block; height: 100%; border-right: var(--b-thin); transition: width 0.4s; }
+.set-list { text-align: left; display: grid; gap: 6px; margin-bottom: 14px; }
+.set-row { font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.set-row .chip-tag { opacity: 0.5; }
+.set-row .chip-tag.on { opacity: 1; background: var(--mint-l); }
+
+.slot-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+@media (max-width: 420px) { .slot-row { grid-template-columns: repeat(4, 1fr); } }
+.slot-tile {
+  aspect-ratio: 1; border: var(--b-thin); border-radius: 10px; background: #fff; padding: 2px;
+  display: grid; place-items: center; box-shadow: 0 3px 0 var(--ink);
+}
+.slot-tile.empty { background: var(--paper-2); border-style: dashed; box-shadow: none; }
+.slot-tile .px-label { font-size: 8px; color: var(--muted); }
+.slot-tile svg { width: 100%; height: auto; }
+
+.panel .tabs { margin-bottom: 12px; }
+.slot-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.slot-filters button { border: var(--b-thin); background: #fff; border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: 13px; }
+.slot-filters button.on { background: var(--ink); color: var(--paper); }
+
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.item-grid.locked { filter: grayscale(0.9); opacity: 0.55; }
+.item-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: var(--b-thin); border-radius: 12px; background: #fff; padding: 10px 6px 8px;
+  box-shadow: 0 3px 0 var(--ink); transition: transform 0.08s;
+}
+.item-tile:hover { transform: translateY(-2px); }
+.item-tile.sel { outline: 3px solid var(--sky); outline-offset: 1px; }
+.it-name { font-size: 12px; font-weight: 700; line-height: 1.2; text-align: center; }
+.eq-badge, .owned-badge, .price-badge {
+  position: absolute; top: -8px; right: -6px; border: var(--b-thin); border-radius: 999px;
+  font-family: var(--font-px); font-size: 10px; padding: 1px 6px; background: var(--mint);
+}
+.price-badge { background: var(--sun); display: inline-flex; gap: 2px; align-items: center; font-family: var(--font-mono); font-weight: 800; font-size: 11px; }
+.owned-badge { background: var(--paper-2); }
+.shop-world h4 { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; }
+
+/* rarity accents */
+.r-common { --rar: #a8a29e; }
+.r-uncommon { --rar: #1fbf75; }
+.r-rare { --rar: #3d8bfd; }
+.r-epic { --rar: #8b5cf6; }
+.r-legendary { --rar: #f59e0b; }
+.item-tile[class*='r-'], .slot-tile[class*='r-'] { border-bottom: 5px solid var(--rar); }
+.item-detail { display: flex; gap: 16px; align-items: flex-start; border: var(--b); border-radius: 14px; padding: 16px; background: var(--paper); border-left: 8px solid var(--rar); }
+.item-detail h3 { margin: 2px 0; }
+.item-detail .rarity { color: var(--rar); }
+.id-icon { flex-shrink: 0; background: #fff; border: var(--b-thin); border-radius: 12px; padding: 6px; }
+.item-detail .lesson { display: flex; gap: 6px; align-items: flex-start; font-weight: 600; font-size: 14.5px; margin: 8px 0 6px; }
+.item-detail .flavor { font-style: italic; font-size: 13.5px; }
+.item-detail .set-note { font-size: 13.5px; margin: 0; }
+@media (max-width: 520px) { .item-detail { flex-direction: column; } }
+
+/* look editor */
+.look-editor { display: grid; gap: 14px; }
+.look-row .px-label { display: block; margin-bottom: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 34px; height: 34px; border-radius: 9px; border: var(--b-thin); box-shadow: 0 2px 0 var(--ink); }
+.swatch.on { outline: 3px solid var(--ink); outline-offset: 2px; }
+.style-btn { border: var(--b-thin); border-radius: 9px; background: #fff; padding: 5px 10px; font-weight: 700; font-size: 13.5px; text-transform: capitalize; }
+.style-btn.on { background: var(--ink); color: var(--sun); }
+
+.buff-list { display: grid; gap: 6px; text-align: left; margin: 0 0 14px; }
+.buff { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; background: var(--sun-l); border: var(--b-thin); border-radius: 10px; padding: 6px 10px; }
+.buff small { display: block; }
+.chip-tag.neg { background: var(--tomato-l); }
