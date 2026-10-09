@@ -42,7 +42,7 @@ npm run dev                   # http://localhost:3001
 
 Without `RESEND_API_KEY`, emails are printed to the server console (with clickable links) instead of being sent.
 
-**Make yourself admin:** sign up on the site, then:
+**Make yourself admin:** sign up on the site, then run the command below. It prints your user id; add that id to `ADMIN_USER_IDS` (in `.env` locally, or Railway's Variables in production). Admin needs both. Nobody can be promoted from inside the website.
 
 ```bash
 cd backend && npm run make-admin -- yourusername

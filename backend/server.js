@@ -12,6 +12,7 @@ import { config } from './config.js';
 import { query } from './db/pool.js';
 import { verifyAccessToken } from './services/tokens.js';
 import { dataSources } from './services/marketData.js';
+import { isAdminRow } from './services/adminAccess.js';
 import authRoutes from './routes/auth.js';
 import meRoutes from './routes/me.js';
 import marketRoutes from './routes/market.js';
@@ -176,9 +177,9 @@ io.use(async (socket, next) => {
   try {
     const payload = verifyAccessToken(socket.handshake.auth?.token);
     // Role comes from the database, not the token, before joining the admin room.
-    const { rows } = await query('SELECT role, is_active FROM users WHERE id = $1', [payload.userId]);
+    const { rows } = await query('SELECT id, role, is_active FROM users WHERE id = $1', [payload.userId]);
     if (!rows[0]?.is_active) return next(new Error('Account not available'));
-    socket.user = { userId: payload.userId, username: payload.username, role: rows[0].role };
+    socket.user = { userId: payload.userId, username: payload.username, role: isAdminRow(rows[0]) ? 'admin' : 'user' };
     next();
   } catch {
     next(new Error('Invalid or expired token'));

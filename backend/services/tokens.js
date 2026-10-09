@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
+import { isAdminRow } from './adminAccess.js';
 
 // One-time secrets (refresh tokens, email links, recovery codes) are stored only
 // as SHA-256 hashes. A database leak then doesn't hand out working sessions or
@@ -31,7 +32,7 @@ export function normalizeRecoveryCode(code) {
 
 export function signAccessToken(user) {
   return jwt.sign(
-    { userId: user.id, username: user.username, role: user.role },
+    { userId: user.id, username: user.username, role: isAdminRow(user) ? 'admin' : 'user' },
     config.jwt.accessSecret,
     { expiresIn: config.jwt.accessTtl, issuer: config.jwt.issuer, algorithm: 'HS256' }
   );

@@ -125,7 +125,7 @@ const AdminSection = (() => {
       <div style="max-height:160px;overflow:auto">${d.lessonProgress.slice(0, 50).map((l) => `<div class="recent-reg-item"><span>${escapeHtml(l.title)}</span><span class="mono">${l.best_score}%</span></div>`).join('') || '<p class="muted">None yet</p>'}</div>
       <h4>Actions</h4><div class="row-wrap">
         <button class="btn btn-sm" data-a="unlock">Unlock login</button><button class="btn btn-sm" data-a="revoke">Sign out everywhere</button>
-        ${isMe ? '' : `<button class="btn btn-sm" data-a="role">${u.role === 'admin' ? 'Remove admin' : 'Make admin'}</button>
+        ${isMe ? '' : `${u.role === 'admin' ? '<button class="btn btn-sm" data-a="role">Remove admin</button>' : ''}
         <button class="btn btn-sm" data-a="active">${u.isActive ? 'Deactivate' : 'Reactivate'}</button><button class="btn btn-sm btn-danger" data-a="delete">Delete user</button>`}
       </div>`, { wide: true });
     m.el.querySelectorAll('[data-a]').forEach((b) => b.onclick = async () => {
@@ -134,8 +134,8 @@ const AdminSection = (() => {
         if (a === 'unlock') UI.toast((await api.post(`/admin/users/${id}/unlock`)).message, 'success');
         if (a === 'revoke') UI.toast((await api.post(`/admin/users/${id}/revoke-sessions`)).message, 'success');
         if (a === 'role') {
-          if (!(await UI.confirm({ title: 'Change role?', message: `Make ${escapeHtml(u.username)} ${u.role === 'admin' ? 'a regular user' : 'an admin'}?` }))) return;
-          await api.patch(`/admin/users/${id}`, { role: u.role === 'admin' ? 'user' : 'admin' });
+          if (!(await UI.confirm({ title: 'Remove admin?', message: `Make ${escapeHtml(u.username)} a regular user?` }))) return;
+          await api.patch(`/admin/users/${id}`, { role: 'user' });
         }
         if (a === 'active') await api.patch(`/admin/users/${id}`, { isActive: !u.isActive });
         if (a === 'delete') {

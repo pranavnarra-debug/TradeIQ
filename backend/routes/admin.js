@@ -164,7 +164,12 @@ router.patch('/users/:id', async (req, res, next) => {
     if (!targetId) return res.status(404).json({ error: 'User not found' });
     const { role, isActive } = req.body || {};
     if (role === undefined && isActive === undefined) return res.status(400).json({ error: 'Provide role or isActive to update' });
-    if (role !== undefined && !['user', 'admin'].includes(role)) return res.status(400).json({ error: 'role must be user or admin' });
+    if (role === 'admin') {
+      // Promotion is deliberately impossible from the web app. See services/adminAccess.js.
+      await audit(req, targetId, 'blocked_promotion_attempt');
+      return res.status(403).json({ error: 'Admins can only be added by the site owner (ADMIN_USER_IDS in the hosting settings).' });
+    }
+    if (role !== undefined && role !== 'user') return res.status(400).json({ error: 'role can only be set to user' });
     if (targetId === req.user.userId) {
       if (role === 'user') return res.status(400).json({ error: 'You cannot remove your own admin role' });
       if (isActive === false) return res.status(400).json({ error: 'You cannot deactivate your own account' });

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Grants (or revokes) the admin role from the command line. This replaces v1's
 // "whoever registers with ADMIN_EMAIL becomes admin", which let anyone who
-// guessed that address first claim the admin account.
+// guessed that address first claim the admin account. Admin access ALSO
+// requires the user id in ADMIN_USER_IDS (see services/adminAccess.js).
 //
 //   npm run make-admin -- <username>
 //   npm run make-admin -- <username> --revoke
@@ -36,7 +37,11 @@ try {
     );
     // Drop their sessions so the new role takes effect on next login.
     await client.query('DELETE FROM refresh_tokens WHERE user_id = $1', [res.rows[0].id]);
-    console.log(`${res.rows[0].username} is now: ${res.rows[0].role}. They'll need to log in again.`);
+    console.log(`${res.rows[0].username} (user id ${res.rows[0].id}) now has role: ${res.rows[0].role}. They'll need to log in again.`);
+    if (role === 'admin') {
+      console.log(`\nIMPORTANT: the role alone is not enough. Admin access also requires this id in the`);
+      console.log(`ADMIN_USER_IDS environment variable (comma-separated) on your host, e.g. ADMIN_USER_IDS=${res.rows[0].id}`);
+    }
   }
 } catch (err) {
   console.error(err.message);

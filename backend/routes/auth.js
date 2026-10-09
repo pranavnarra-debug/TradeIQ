@@ -8,6 +8,7 @@ import {
 import { usernameProblem, passwordProblem, emailProblem, normalizeEmail, isValidTimezone } from '../services/validate.js';
 import { sendVerifyEmail, sendPasswordResetEmail, sendSecurityNotice, sendWelcomeEmail } from '../services/emailService.js';
 import { levelFor, checkAchievementsSafe } from '../services/progress.js';
+import { isAdminRow } from '../services/adminAccess.js';
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ export function publicUser(u) {
   return {
     id: u.id,
     username: u.username,
-    role: u.role,
+    role: isAdminRow(u) ? 'admin' : 'user',
     email: u.email || null,
     emailVerified: Boolean(u.email && u.email_verified),
     emailOptIn: Boolean(u.email_opt_in),

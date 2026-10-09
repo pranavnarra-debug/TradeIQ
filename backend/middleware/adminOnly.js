@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { isAdminRow } from '../services/adminAccess.js';
 
 /**
  * Requires `authenticate` to have run first. Re-checks the role in the
@@ -9,8 +10,8 @@ import { query } from '../db/pool.js';
 export async function adminOnly(req, res, next) {
   if (!req.user) return res.status(403).json({ error: 'Admin access required' });
   try {
-    const { rows } = await query('SELECT role, is_active FROM users WHERE id = $1', [req.user.userId]);
-    if (!rows[0] || rows[0].role !== 'admin' || !rows[0].is_active) {
+    const { rows } = await query('SELECT id, role, is_active FROM users WHERE id = $1', [req.user.userId]);
+    if (!isAdminRow(rows[0])) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     next();
