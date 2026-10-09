@@ -1,12 +1,15 @@
 import express from 'express';
-import { query } from '../db/pool.js';
+import { query, withTransaction } from '../db/pool.js';
 import { authenticate } from '../middleware/auth.js';
 import marketData from '../services/marketData.js';
+import { cleanSymbol, clampText } from '../services/validate.js';
+import { checkAchievementsSafe } from '../services/progress.js';
 
 const router = express.Router();
 router.use(authenticate);
 
 async function ownsPortfolio(userId, portfolioId) {
+  if (!Number.isInteger(Number(portfolioId))) return null;
   const result = await query('SELECT * FROM portfolios WHERE id = $1 AND user_id = $2', [portfolioId, userId]);
   return result.rows[0] || null;
 }
@@ -85,92 +88,108 @@ router.get('/', async (req, res) => {
   }
 });
 
+const MAX_QTY = 1_000_000;
+const STRATEGY_RE = /^[a-z_]{1,50}$/;
+
+function parseId(v) {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 router.post('/:id/trade', async (req, res) => {
   try {
-    const portfolio = await ownsPortfolio(req.user.userId, req.params.id);
-    if (!portfolio) return res.status(404).json({ error: 'Portfolio not found' });
+    const portfolioId = parseId(req.params.id);
+    if (!portfolioId) return res.status(404).json({ error: 'Portfolio not found' });
 
-    const { symbol, action, quantity, orderType = 'market', limitPrice, strategy, reasoning } = req.body || {};
+    const { symbol, action, orderType = 'market', limitPrice, strategy, reasoning } = req.body || {};
+    const quantity = Number(req.body?.quantity);
+    const upperSymbol = cleanSymbol(symbol);
 
-    if (!symbol || !['BUY', 'SELL'].includes(action) || !quantity || quantity <= 0) {
-      return res.status(400).json({ error: 'symbol, action (BUY/SELL), and a positive quantity are required' });
+    if (!upperSymbol) return res.status(400).json({ error: 'Enter a valid ticker symbol' });
+    if (!['BUY', 'SELL'].includes(action)) return res.status(400).json({ error: 'action must be BUY or SELL' });
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > MAX_QTY) {
+      return res.status(400).json({ error: `Quantity must be a whole number from 1 to ${MAX_QTY.toLocaleString()}` });
     }
-    if (!['market', 'limit'].includes(orderType)) {
-      return res.status(400).json({ error: 'orderType must be market or limit' });
+    if (!['market', 'limit'].includes(orderType)) return res.status(400).json({ error: 'orderType must be market or limit' });
+    const limit = orderType === 'limit' ? Number(limitPrice) : null;
+    if (orderType === 'limit' && !(limit > 0 && Number.isFinite(limit))) {
+      return res.status(400).json({ error: 'Enter a positive limit price' });
     }
-    if (orderType === 'limit' && !limitPrice) {
-      return res.status(400).json({ error: 'limitPrice is required for limit orders' });
-    }
+    if (strategy != null && !STRATEGY_RE.test(strategy)) return res.status(400).json({ error: 'Unknown strategy' });
 
-    const upperSymbol = symbol.toUpperCase();
     const quote = await marketData.getQuote(upperSymbol);
-    if (quote.error) {
+    if (quote.error || !(quote.price > 0)) {
       return res.status(503).json({ error: 'Market data temporarily unavailable, please try again shortly' });
     }
-    const executionPrice = orderType === 'limit' ? Number(limitPrice) : quote.price;
-    const cost = executionPrice * quantity;
 
-    if (action === 'BUY') {
-      if (cost > Number(portfolio.cash)) {
-        return res.status(400).json({ error: 'Insufficient cash for this trade' });
+    // Limit orders fill at the market price only if the market is at or better
+    // than the limit (like a real exchange). v1 filled at the typed limit
+    // price, which let anyone "buy" at $0.01 and sell at market for free money.
+    if (orderType === 'limit') {
+      const marketable = action === 'BUY' ? quote.price <= limit : quote.price >= limit;
+      if (!marketable) {
+        return res.status(400).json({
+          error: `Not filled: ${upperSymbol} is at $${quote.price.toFixed(2)}, which doesn't meet your $${limit.toFixed(2)} limit. The simulator only fills limit orders that are marketable right now.`,
+        });
+      }
+    }
+    const executionPrice = quote.price;
+    const cleanReasoning = clampText(reasoning, 1000);
+
+    const outcome = await withTransaction(async (db) => {
+      // Row lock: two simultaneous orders can't both spend the same cash.
+      const pr = await db.query('SELECT * FROM portfolios WHERE id = $1 AND user_id = $2 FOR UPDATE', [portfolioId, req.user.userId]);
+      const portfolio = pr.rows[0];
+      if (!portfolio) return { status: 404, error: 'Portfolio not found' };
+
+      if (action === 'BUY') {
+        const cost = executionPrice * quantity;
+        if (cost > Number(portfolio.cash)) return { status: 400, error: 'Not enough cash for this trade' };
+        await db.query(
+          `INSERT INTO trades (portfolio_id, symbol, action, quantity, price, order_type, strategy, reasoning)
+           VALUES ($1, $2, 'BUY', $3, $4, $5, $6, $7)`,
+          [portfolio.id, upperSymbol, quantity, executionPrice, orderType, strategy ?? null, cleanReasoning]
+        );
+        await db.query(
+          `INSERT INTO positions (portfolio_id, symbol, side, quantity, entry_price, strategy) VALUES ($1, $2, 'long', $3, $4, $5)`,
+          [portfolio.id, upperSymbol, quantity, executionPrice, strategy ?? null]
+        );
+        await db.query('UPDATE portfolios SET cash = cash - $1 WHERE id = $2', [cost, portfolio.id]);
+        return { ok: true };
       }
 
-      await query(
-        `INSERT INTO trades (portfolio_id, symbol, action, quantity, price, order_type, strategy, reasoning)
-         VALUES ($1, $2, 'BUY', $3, $4, $5, $6, $7)`,
-        [portfolio.id, upperSymbol, quantity, executionPrice, orderType, strategy ?? null, reasoning ?? null]
-      );
-
-      await query(
-        `INSERT INTO positions (portfolio_id, symbol, side, quantity, entry_price, strategy)
-         VALUES ($1, $2, 'long', $3, $4, $5)`,
-        [portfolio.id, upperSymbol, quantity, executionPrice, strategy ?? null]
-      );
-
-      await query('UPDATE portfolios SET cash = cash - $1 WHERE id = $2', [cost, portfolio.id]);
-    } else {
-      // SELL: close existing long position(s) for this symbol, FIFO, up to requested quantity
-      const openPositions = await query(
-        `SELECT * FROM positions WHERE portfolio_id = $1 AND symbol = $2 AND is_open = TRUE ORDER BY entry_time ASC`,
+      const open = await db.query(
+        `SELECT * FROM positions WHERE portfolio_id = $1 AND symbol = $2 AND is_open = TRUE AND side = 'long'
+         ORDER BY entry_time ASC FOR UPDATE`,
         [portfolio.id, upperSymbol]
       );
-
-      const totalOpenQty = openPositions.rows.reduce((sum, p) => sum + Number(p.quantity), 0);
-      if (totalOpenQty < quantity) {
-        return res.status(400).json({ error: 'Cannot sell more shares than currently held' });
-      }
+      const held = open.rows.reduce((sum, p) => sum + Number(p.quantity), 0);
+      if (held < quantity) return { status: 400, error: `You only hold ${held} share${held === 1 ? '' : 's'} of ${upperSymbol}` };
 
       let remaining = quantity;
-      let totalRealizedPnl = 0;
-
-      for (const pos of openPositions.rows) {
+      let realized = 0;
+      for (const pos of open.rows) {
         if (remaining <= 0) break;
-        const posQty = Number(pos.quantity);
-        const sellQty = Math.min(posQty, remaining);
-        const entry = Number(pos.entry_price);
-        const pnl = (executionPrice - entry) * sellQty;
-        totalRealizedPnl += pnl;
-
-        if (sellQty === posQty) {
-          await query('UPDATE positions SET is_open = FALSE WHERE id = $1', [pos.id]);
-        } else {
-          await query('UPDATE positions SET quantity = quantity - $1 WHERE id = $2', [sellQty, pos.id]);
-        }
+        const sellQty = Math.min(Number(pos.quantity), remaining);
+        realized += (executionPrice - Number(pos.entry_price)) * sellQty;
+        if (sellQty === Number(pos.quantity)) await db.query('UPDATE positions SET is_open = FALSE WHERE id = $1', [pos.id]);
+        else await db.query('UPDATE positions SET quantity = quantity - $1 WHERE id = $2', [sellQty, pos.id]);
         remaining -= sellQty;
       }
-
-      await query(
+      await db.query(
         `INSERT INTO trades (portfolio_id, symbol, action, quantity, price, order_type, strategy, reasoning, realized_pnl)
          VALUES ($1, $2, 'SELL', $3, $4, $5, $6, $7, $8)`,
-        [portfolio.id, upperSymbol, quantity, executionPrice, orderType, strategy ?? null, reasoning ?? null, totalRealizedPnl]
+        [portfolio.id, upperSymbol, quantity, executionPrice, orderType, strategy ?? null, cleanReasoning, realized]
       );
+      await db.query('UPDATE portfolios SET cash = cash + $1 WHERE id = $2', [executionPrice * quantity, portfolio.id]);
+      return { ok: true };
+    });
 
-      await query('UPDATE portfolios SET cash = cash + $1 WHERE id = $2', [executionPrice * quantity, portfolio.id]);
-    }
+    if (outcome.error) return res.status(outcome.status).json({ error: outcome.error });
 
-    const updatedPortfolio = await ownsPortfolio(req.user.userId, req.params.id);
-    const stats = await computePortfolioStats(updatedPortfolio);
-    res.json(stats);
+    const newAchievements = await checkAchievementsSafe(req.user.userId);
+    const stats = await computePortfolioStats(await ownsPortfolio(req.user.userId, portfolioId));
+    res.json({ ...stats, newAchievements: newAchievements.map(({ id, name, desc, sprite }) => ({ id, name, desc, sprite })) });
   } catch (err) {
     console.error('Trade error:', err);
     res.status(500).json({ error: 'Failed to execute trade' });
@@ -208,39 +227,47 @@ router.get('/:id/history', async (req, res) => {
 
 router.post('/:id/close/:posId', async (req, res) => {
   try {
-    const portfolio = await ownsPortfolio(req.user.userId, req.params.id);
-    if (!portfolio) return res.status(404).json({ error: 'Portfolio not found' });
+    const portfolioId = parseId(req.params.id);
+    const posId = parseId(req.params.posId);
+    if (!portfolioId || !posId) return res.status(404).json({ error: 'Open position not found' });
 
-    const posResult = await query(
-      'SELECT * FROM positions WHERE id = $1 AND portfolio_id = $2 AND is_open = TRUE',
-      [req.params.posId, portfolio.id]
+    const pre = await query(
+      `SELECT p.symbol FROM positions p JOIN portfolios pf ON pf.id = p.portfolio_id
+       WHERE p.id = $1 AND pf.id = $2 AND pf.user_id = $3 AND p.is_open = TRUE`,
+      [posId, portfolioId, req.user.userId]
     );
-    const position = posResult.rows[0];
-    if (!position) return res.status(404).json({ error: 'Open position not found' });
+    if (!pre.rows[0]) return res.status(404).json({ error: 'Open position not found' });
 
-    const quote = await marketData.getQuote(position.symbol);
-    if (quote.error) {
+    const quote = await marketData.getQuote(pre.rows[0].symbol);
+    if (quote.error || !(quote.price > 0)) {
       return res.status(503).json({ error: 'Market data temporarily unavailable, please try again shortly' });
     }
-
-    const qty = Number(position.quantity);
-    const entry = Number(position.entry_price);
     const exitPrice = quote.price;
-    const pnl = position.side === 'long' ? (exitPrice - entry) * qty : (entry - exitPrice) * qty;
 
-    await query('UPDATE positions SET is_open = FALSE WHERE id = $1', [position.id]);
-    await query(
-      `INSERT INTO trades (portfolio_id, symbol, action, quantity, price, order_type, strategy, reasoning, realized_pnl)
-       VALUES ($1, $2, 'SELL', $3, $4, 'market', $5, $6, $7)`,
-      [portfolio.id, position.symbol, qty, exitPrice, position.strategy, 'Manual position close', pnl]
-    );
+    const outcome = await withTransaction(async (db) => {
+      const pf = await db.query('SELECT id FROM portfolios WHERE id = $1 AND user_id = $2 FOR UPDATE', [portfolioId, req.user.userId]);
+      if (!pf.rows[0]) return { error: 'Portfolio not found' };
+      const pr = await db.query('SELECT * FROM positions WHERE id = $1 AND portfolio_id = $2 AND is_open = TRUE FOR UPDATE', [posId, portfolioId]);
+      const position = pr.rows[0];
+      if (!position) return { error: 'Open position not found' };
+      const qty = Number(position.quantity);
+      const entry = Number(position.entry_price);
+      const pnl = position.side === 'long' ? (exitPrice - entry) * qty : (entry - exitPrice) * qty;
+      await db.query('UPDATE positions SET is_open = FALSE WHERE id = $1', [position.id]);
+      await db.query(
+        `INSERT INTO trades (portfolio_id, symbol, action, quantity, price, order_type, strategy, reasoning, realized_pnl)
+         VALUES ($1, $2, 'SELL', $3, $4, 'market', $5, 'Closed position', $6)`,
+        [portfolioId, position.symbol, qty, exitPrice, position.strategy, pnl]
+      );
+      const cashDelta = position.side === 'long' ? exitPrice * qty : entry * qty + pnl;
+      await db.query('UPDATE portfolios SET cash = cash + $1 WHERE id = $2', [cashDelta, portfolioId]);
+      return { ok: true };
+    });
+    if (outcome.error) return res.status(404).json({ error: outcome.error });
 
-    const cashDelta = position.side === 'long' ? exitPrice * qty : entry * qty + pnl;
-    await query('UPDATE portfolios SET cash = cash + $1 WHERE id = $2', [cashDelta, portfolio.id]);
-
-    const updatedPortfolio = await ownsPortfolio(req.user.userId, req.params.id);
-    const stats = await computePortfolioStats(updatedPortfolio);
-    res.json(stats);
+    const newAchievements = await checkAchievementsSafe(req.user.userId);
+    const stats = await computePortfolioStats(await ownsPortfolio(req.user.userId, portfolioId));
+    res.json({ ...stats, newAchievements: newAchievements.map(({ id, name, desc, sprite }) => ({ id, name, desc, sprite })) });
   } catch (err) {
     console.error('Close position error:', err);
     res.status(500).json({ error: 'Failed to close position' });
@@ -283,22 +310,24 @@ router.post('/analysis', async (req, res) => {
   try {
     const { symbol, trendAssessment, supportLevel, resistanceLevel, canslimChecks, verdict, reasoning } = req.body || {};
 
-    if (!symbol || !verdict || !reasoning || reasoning.length < 20) {
+    const sym = cleanSymbol(symbol);
+    if (!sym || !['BUY', 'HOLD', 'AVOID', 'SELL'].includes(verdict) || typeof reasoning !== 'string' || reasoning.length < 20) {
       return res.status(400).json({ error: 'symbol, verdict, and a reasoning of at least 20 characters are required' });
     }
+    const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
 
     const result = await query(
       `INSERT INTO user_analyses (user_id, symbol, trend_assessment, support_level, resistance_level, canslim_checks, verdict, reasoning)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [
         req.user.userId,
-        symbol.toUpperCase(),
-        trendAssessment ?? null,
-        supportLevel ?? null,
-        resistanceLevel ?? null,
-        canslimChecks ? JSON.stringify(canslimChecks) : null,
+        sym,
+        clampText(trendAssessment, 20),
+        num(supportLevel),
+        num(resistanceLevel),
+        canslimChecks && typeof canslimChecks === 'object' ? JSON.stringify(canslimChecks).slice(0, 2000) : null,
         verdict,
-        reasoning,
+        clampText(reasoning, 4000),
       ]
     );
 

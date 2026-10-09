@@ -39,6 +39,17 @@ export function startDataRetentionJobs() {
     }
   });
 
+  // Daily at 3am: email delivery log only needs to cover recent sends for
+  // debugging deliverability; 180 days is plenty.
+  cron.schedule('15 3 * * *', async () => {
+    try {
+      const result = await query(`DELETE FROM email_log WHERE created_at < NOW() - INTERVAL '180 days'`);
+      console.log(`[dataRetention] Purged ${result.rowCount} email_log rows older than 180 days`);
+    } catch (err) {
+      console.error('[dataRetention] Failed to purge old email_log:', err.message);
+    }
+  });
+
   // Monthly on the 1st at 3am: trim admin_metrics_snapshots beyond a year of
   // history. The admin dashboard only ever charts the trailing 30 days; a full
   // year of hourly snapshots is already generous headroom for any future use.

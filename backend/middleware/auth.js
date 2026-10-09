@@ -1,21 +1,20 @@
-import jwt from 'jsonwebtoken';
+import { verifyAccessToken } from '../services/tokens.js';
 
 export function authenticate(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No access token provided' });
+    return res.status(401).json({ error: 'Please log in to continue', code: 'AUTH_REQUIRED' });
   }
 
-  const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    const payload = verifyAccessToken(header.slice(7));
     req.user = { userId: payload.userId, username: payload.username, role: payload.role };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Access token expired' });
+      return res.status(401).json({ error: 'Access token expired', code: 'TOKEN_EXPIRED' });
     }
-    return res.status(401).json({ error: 'Invalid access token' });
+    return res.status(401).json({ error: 'Invalid access token', code: 'AUTH_REQUIRED' });
   }
 }
 

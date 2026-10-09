@@ -1,6 +1,6 @@
 /* ============================================================
    TradeIQ — research.js
-   Stock Research: AI analysis + user's own analysis + comparison
+   Stock Research: rule-based indicator analysis + user's own analysis + comparison
    ============================================================ */
 
 const ResearchSection = (() => {
@@ -31,7 +31,7 @@ const ResearchSection = (() => {
     content.innerHTML = `
       <div class="flex-row" style="margin-bottom: 18px;">
         <input class="input" id="research-ticker-input" placeholder="Enter ticker (e.g. AAPL)" style="max-width: 220px;" />
-        <button class="btn btn-primary" id="research-go-btn"><i class="fa-solid fa-magnifying-glass"></i> Research</button>
+        <button class="btn btn-primary" id="research-go-btn">${Sprites.icon('magnifier', 18)} Research</button>
         <span id="research-loading" style="display:none;"><span class="spinner"></span></span>
       </div>
       <div id="research-results"></div>
@@ -65,9 +65,9 @@ const ResearchSection = (() => {
   }
 
   function momentumColor(score) {
-    if (score >= 7) return '#3fb950';
-    if (score >= 4) return '#d29922';
-    return '#f85149';
+    if (score >= 7) return '#12985a';
+    if (score >= 4) return '#e0a800';
+    return '#d93a2f';
   }
 
   function verdictClass(signal) {
@@ -76,9 +76,9 @@ const ResearchSection = (() => {
     return 'hold';
   }
   function verdictIcon(signal) {
-    if (signal === 'BUY') return '🟢';
-    if (signal === 'AVOID') return '🔴';
-    return '🟡';
+    if (signal === 'BUY') return Sprites.character('chip', 40);
+    if (signal === 'AVOID') return Sprites.character('grizz', 40);
+    return Sprites.character('hoot', 40);
   }
 
   function canslimRowClass(row) {
@@ -133,7 +133,7 @@ const ResearchSection = (() => {
                   <tr class="${canslimRowClass(r)}">
                     <td><strong>${escapeHtml(r.letter)}</strong> — ${escapeHtml(r.name)}</td>
                     <td>${r.pass ? '✅ Pass' : '❌ Fail'}</td>
-                    <td class="text-dim">${escapeHtml(r.justification)}</td>
+                    <td class="muted">${escapeHtml(r.justification)}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -153,7 +153,7 @@ const ResearchSection = (() => {
               <div class="card-title">Pattern Detection</div>
               <div style="text-align:center; padding: 18px 0;">
                 <span class="badge badge-hold" style="font-size:13px; padding: 8px 16px;">${escapeHtml(a.pattern.pattern)}</span>
-                <p class="text-dim" style="font-size: 12.5px; margin-top: 12px;">${escapeHtml(a.pattern.description)}</p>
+                <p class="muted" style="font-size: 12.5px; margin-top: 12px;">${escapeHtml(a.pattern.description)}</p>
               </div>
             </div>
           </div>
@@ -169,15 +169,16 @@ const ResearchSection = (() => {
           </div>
 
           <div class="card">
-            <div class="card-title">AI Verdict</div>
+            <div class="card-title">Indicator read-out</div>
             <div class="verdict-badge-large ${verdictClass(a.verdict.signal)}">
               <span class="verdict-icon">${verdictIcon(a.verdict.signal)}</span>
               <div>
-                <div class="verdict-text">${a.verdict.signal}</div>
-                <div class="text-dim" style="font-size:12.5px;">${a.verdict.confidence}% confidence</div>
+                <div class="verdict-text">${({ BUY: 'Bullish setup', AVOID: 'Bearish setup', HOLD: 'Mixed signals' })[a.verdict.signal] || a.verdict.signal}</div>
+                <div class="muted" style="font-size:12px;">Educational read of the indicators, not a recommendation</div>
+                <div class="muted" style="font-size:12.5px;">${a.verdict.confidence}% confidence</div>
               </div>
             </div>
-            <p style="font-size: 13.5px; color: #c9d1d9; line-height: 1.6;">${escapeHtml(a.verdict.rationale)}</p>
+            <p style="font-size: 13.5px; color: var(--ink-2); line-height: 1.6;">${escapeHtml(a.verdict.rationale)}</p>
             <ul class="risk-bullets">
               ${a.verdict.riskBullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}
             </ul>
@@ -224,7 +225,7 @@ const ResearchSection = (() => {
                 <label>Reasoning (min 20 characters)</label>
                 <textarea class="input" id="my-reasoning" rows="4"></textarea>
               </div>
-              <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-pen"></i> Submit My Analysis</button>
+              <button type="submit" class="btn btn-primary btn-block">${Sprites.icon('book', 16)} Submit My Analysis</button>
             </form>
           </div>
           <div id="comparison-view"></div>
@@ -291,17 +292,17 @@ const ResearchSection = (() => {
     const supportCompare = closeOrDiffer(a.technical.low52, my.supportLevel, 5);
 
     const differences = [];
-    if (trendCompare.cls === 'differ') differences.push(`You assessed the trend as ${escapeHtml(my.trendAssessment)} while the AI sees ${escapeHtml(aiTrend)}.`);
-    if (verdictCompare.cls === 'differ') differences.push(`Your verdict (${escapeHtml(my.verdict)}) differs from the AI's (${escapeHtml(a.verdict.signal)}) — review which CANSLIM criteria you may be weighing differently.`);
-    if (canslimCompare.cls !== 'agree') differences.push(`Your CANSLIM score (${myCanslimScore}/7) differs from the AI's (${aiCanslimScore}/7).`);
-    if (differences.length === 0) differences.push('Your analysis closely matches the AI assessment — nice work staying objective!');
+    if (trendCompare.cls === 'differ') differences.push(`You assessed the trend as ${escapeHtml(my.trendAssessment)} while the indicators show ${escapeHtml(aiTrend)}.`);
+    if (verdictCompare.cls === 'differ') differences.push(`Your verdict (${escapeHtml(my.verdict)}) differs from the indicator read-out's (${escapeHtml(a.verdict.signal)}) — review which CANSLIM criteria you may be weighing differently.`);
+    if (canslimCompare.cls !== 'agree') differences.push(`Your CANSLIM score (${myCanslimScore}/7) differs from the indicator read-out's (${aiCanslimScore}/7).`);
+    if (differences.length === 0) differences.push('Your analysis closely matches the indicator read-out — nice work staying objective!');
 
     const el = document.getElementById('comparison-view');
     el.innerHTML = `
       <div class="card section-spacer">
         <div class="card-title">Comparison</div>
         <table class="comparison-table">
-          <thead><tr><th>Dimension</th><th>AI Assessment</th><th>My Assessment</th><th>Agreement</th></tr></thead>
+          <thead><tr><th>Dimension</th><th>Indicators</th><th>My Assessment</th><th>Agreement</th></tr></thead>
           <tbody>
             <tr><td>Trend</td><td>${escapeHtml(aiTrend)}</td><td>${escapeHtml(my.trendAssessment)}</td><td class="${trendCompare.cls}">${trendCompare.label}</td></tr>
             <tr><td>Support</td><td>${fmtMoney(a.technical.low52)}</td><td>${fmtMoney(my.supportLevel)}</td><td class="${supportCompare.cls}">${supportCompare.label}</td></tr>

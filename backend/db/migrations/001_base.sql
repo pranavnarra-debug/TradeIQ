@@ -1,5 +1,6 @@
--- TradeIQ Database Schema
--- PostgreSQL 14+
+-- TradeIQ base schema (v1). Applied automatically by `npm run migrate`.
+-- PostgreSQL 14+. Later migrations alter these tables; read them in order.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,

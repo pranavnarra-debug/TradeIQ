@@ -1,6 +1,6 @@
 /* ============================================================
    TradeIQ — aiTrader.js
-   AI Trader section: autonomous strategy execution + visualization
+   Bolt the Bot: rule-based strategy execution + visualization (not AI)
    ============================================================ */
 
 const AiTraderSection = (() => {
@@ -81,10 +81,10 @@ const AiTraderSection = (() => {
       <div class="controls-row">
         <select class="input" id="ai-strategy-select">${strategyOptionsHtml()}</select>
         <select class="input" id="ai-ticker-select">${tickerOptionsHtml()}</select>
-        <button class="btn btn-green ai-toggle-btn" id="ai-toggle-btn"><i class="fa-solid fa-play"></i> Start AI</button>
+        <button class="btn btn-green ai-toggle-btn" id="ai-toggle-btn">&#9654; Start Bolt</button>
         <span class="countdown-indicator" id="ai-countdown"></span>
       </div>
-      <div class="text-dim" id="ai-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
+      <div class="muted" id="ai-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
 
       <div class="trading-layout">
         <div class="card">
@@ -106,11 +106,11 @@ const AiTraderSection = (() => {
               <div class="confidence-bar-track"><div class="confidence-bar-fill" id="ai-confidence-fill" style="width:0%;"></div></div>
             </div>
             <div class="rules-checklist" id="ai-rules-checklist">
-              <div class="empty-state">Start the AI to see live signal analysis.</div>
+              <div class="empty-state">Start Bolt to watch the strategy rules check live data.</div>
             </div>
             <div class="reasoning-box" id="ai-reasoning-box">Waiting for analysis...</div>
             <div class="position-status-row">
-              <span class="text-dim">Position</span>
+              <span class="muted">Position</span>
               <span id="ai-position-status">FLAT</span>
             </div>
             <div class="risk-reward-row" id="ai-risk-reward">
@@ -119,14 +119,14 @@ const AiTraderSection = (() => {
           </div>
 
           <div class="card" id="ai-portfolio-summary">
-            <div class="card-title">AI Portfolio</div>
+            <div class="card-title">Bolt's portfolio (simulated)</div>
             <div class="empty-state">Loading...</div>
           </div>
         </div>
       </div>
 
       <div class="card section-spacer">
-        <div class="card-title">AI Trade Log</div>
+        <div class="card-title">Bolt's trade log</div>
         <div style="max-height: 320px; overflow-y: auto;">
           <table>
             <thead><tr><th>Time</th><th>Ticker</th><th>Strategy</th><th>Action</th><th>Price</th><th>Qty</th><th>Reasoning</th><th>P&L</th></tr></thead>
@@ -212,7 +212,7 @@ const AiTraderSection = (() => {
     }
     el.innerHTML = rules.map((r) => `
       <div class="rule-row">
-        <i class="fa-solid ${r.passed ? 'fa-check rule-icon pass' : 'fa-xmark rule-icon fail'}"></i>
+        ${Sprites.icon(r.passed ? 'check' : 'cross', 16)}
         <span class="rule-name">${r.name}</span>
         <span class="rule-value">${r.value}</span>
       </div>
@@ -232,9 +232,9 @@ const AiTraderSection = (() => {
     if (!fill || !pct) return;
     pct.textContent = `${confidence}%`;
     fill.style.width = `${confidence}%`;
-    let color = '#f85149';
-    if (confidence >= 65) color = '#3fb950';
-    else if (confidence >= 40) color = '#d29922';
+    let color = '#d93a2f';
+    if (confidence >= 65) color = '#12985a';
+    else if (confidence >= 40) color = '#e0a800';
     fill.style.background = color;
   }
 
@@ -274,16 +274,16 @@ const AiTraderSection = (() => {
       if (!openPos && result.signal === 'BUY' && result.confidence > CONFIDENCE_THRESHOLD) {
         const quote = await api.get(`/market/quote/${state.ticker}`);
         const qty = Math.max(1, Math.floor(notional / quote.price));
-        await api.post(`/portfolio/${state.portfolioId}/trade`, {
+        UI.celebrate(await api.post(`/portfolio/${state.portfolioId}/trade`, {
           symbol: state.ticker, action: 'BUY', quantity: qty, orderType: 'market',
           strategy: state.strategy, reasoning: result.reasoning,
-        });
+        }));
         document.getElementById('ai-position-status').innerHTML = `<span class="text-green">LONG since just now</span>`;
         await loadTradeLog();
         await loadPortfolioSummary();
         await loadChart();
       } else if (openPos && (longTerm ? shouldExitLongTerm : result.signal === 'SELL')) {
-        await api.post(`/portfolio/${state.portfolioId}/close/${openPos.id}`, {});
+        UI.celebrate(await api.post(`/portfolio/${state.portfolioId}/close/${openPos.id}`, {}));
         document.getElementById('ai-position-status').textContent = 'FLAT';
         await loadTradeLog();
         await loadPortfolioSummary();
@@ -305,17 +305,17 @@ const AiTraderSection = (() => {
       const el = document.getElementById('ai-portfolio-summary');
       if (!el) return;
       el.innerHTML = `
-        <div class="card-title">AI Portfolio</div>
+        <div class="card-title">Bolt's portfolio (simulated)</div>
         <div class="stats-bar" style="padding: 0; flex-direction: column; gap: 10px;">
-          <div class="flex-between"><span class="text-dim">Starting Capital</span><strong>${fmtMoney(stats.startingCapital)}</strong></div>
-          <div class="flex-between"><span class="text-dim">Equity</span><strong>${fmtMoney(stats.equity)}</strong></div>
-          <div class="flex-between"><span class="text-dim">Cash</span><strong>${fmtMoney(stats.cash)}</strong></div>
-          <div class="flex-between"><span class="text-dim">Unrealized P&L</span><strong class="${stats.unrealizedPnl >= 0 ? 'text-green' : 'text-red'}">${fmtMoney(stats.unrealizedPnl)}</strong></div>
-          <div class="flex-between"><span class="text-dim">Realized P&L</span><strong class="${stats.realizedPnl >= 0 ? 'text-green' : 'text-red'}">${fmtMoney(stats.realizedPnl)}</strong></div>
-          <div class="flex-between"><span class="text-dim">Win Rate</span><strong>${fmt(stats.winRate, 1)}%</strong></div>
-          <div class="flex-between"><span class="text-dim">Total Trades</span><strong>${stats.totalTrades}</strong></div>
-          <div class="flex-between"><span class="text-dim">Best Trade</span><strong class="text-green">${stats.bestTrade ? fmtMoney(stats.bestTrade.realized_pnl) : '—'}</strong></div>
-          <div class="flex-between"><span class="text-dim">Worst Trade</span><strong class="text-red">${stats.worstTrade ? fmtMoney(stats.worstTrade.realized_pnl) : '—'}</strong></div>
+          <div class="flex-between"><span class="muted">Starting Capital</span><strong>${fmtMoney(stats.startingCapital)}</strong></div>
+          <div class="flex-between"><span class="muted">Equity</span><strong>${fmtMoney(stats.equity)}</strong></div>
+          <div class="flex-between"><span class="muted">Cash</span><strong>${fmtMoney(stats.cash)}</strong></div>
+          <div class="flex-between"><span class="muted">Unrealized P&L</span><strong class="${stats.unrealizedPnl >= 0 ? 'text-green' : 'text-red'}">${fmtMoney(stats.unrealizedPnl)}</strong></div>
+          <div class="flex-between"><span class="muted">Realized P&L</span><strong class="${stats.realizedPnl >= 0 ? 'text-green' : 'text-red'}">${fmtMoney(stats.realizedPnl)}</strong></div>
+          <div class="flex-between"><span class="muted">Win Rate</span><strong>${fmt(stats.winRate, 1)}%</strong></div>
+          <div class="flex-between"><span class="muted">Total Trades</span><strong>${stats.totalTrades}</strong></div>
+          <div class="flex-between"><span class="muted">Best Trade</span><strong class="text-green">${stats.bestTrade ? fmtMoney(stats.bestTrade.realized_pnl) : '—'}</strong></div>
+          <div class="flex-between"><span class="muted">Worst Trade</span><strong class="text-red">${stats.worstTrade ? fmtMoney(stats.worstTrade.realized_pnl) : '—'}</strong></div>
         </div>
       `;
     } catch (err) {
@@ -355,11 +355,11 @@ const AiTraderSection = (() => {
     const btn = document.getElementById('ai-toggle-btn');
     if (state.running) {
       btn.className = 'btn btn-red ai-toggle-btn';
-      btn.innerHTML = '<i class="fa-solid fa-stop"></i> Stop AI';
+      btn.innerHTML = '&#9632; Stop Bolt';
       startPolling();
     } else {
       btn.className = 'btn btn-green ai-toggle-btn';
-      btn.innerHTML = '<i class="fa-solid fa-play"></i> Start AI';
+      btn.innerHTML = '&#9654; Start Bolt';
       stopPolling();
     }
   }
@@ -397,11 +397,11 @@ const AiTraderSection = (() => {
     const meta = currentStrategyMeta();
     if (!meta.style) { el.textContent = ''; return; }
     if (meta.style === 'long_term') {
-      el.innerHTML = `<i class="fa-solid fa-clock"></i> Long-term strategy — re-checks fundamentals every 5 minutes, not every few seconds. This isn't a day trade.`;
+      el.innerHTML = `${Sprites.icon('clock', 16)} Long-term strategy — re-checks fundamentals every 5 minutes, not every few seconds. This isn't a day trade.`;
     } else if (meta.style === 'day') {
-      el.innerHTML = `<i class="fa-solid fa-bolt"></i> Day trading strategy — designed for intraday moves, closed out same session.`;
+      el.innerHTML = `${Sprites.icon('bolt', 16)} Day trading strategy — designed for intraday moves, closed out same session.`;
     } else {
-      el.innerHTML = `<i class="fa-solid fa-chart-line"></i> Swing trading strategy — typically held for days to a few weeks.`;
+      el.innerHTML = `${Sprites.icon('chart', 16)} Swing trading strategy — typically held for days to a few weeks.`;
     }
   }
 

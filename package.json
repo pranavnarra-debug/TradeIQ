@@ -2,10 +2,10 @@
   "name": "tradeiq-root",
   "private": true,
   "scripts": {
-    "build": "cd backend && npm install",
-    "start": "cd backend && node server.js"
+    "build": "cd backend && npm ci --omit=dev",
+    "start": "cd backend && node scripts/migrate.js && node server.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

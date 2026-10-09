@@ -6,16 +6,22 @@
 
 const ChartHelpers = (() => {
   const COLORS = {
-    price: '#e6edf3',
-    ema9: '#58a6ff',
-    ema21: '#d29922',
-    ema50: '#bc8cff',
-    bbBand: '#8b949e',
-    volume: 'rgba(88,166,255,0.25)',
-    green: '#3fb950',
-    red: '#f85149',
-    grid: 'rgba(255,255,255,0.06)',
+    price: '#17140f',
+    ema9: '#3d8bfd',
+    ema21: '#ff7a45',
+    ema50: '#8b5cf6',
+    bbBand: '#776d5c',
+    volume: 'rgba(61,139,253,0.22)',
+    green: '#12985a',
+    red: '#d93a2f',
+    grid: 'rgba(23,20,15,0.08)',
   };
+
+  // House style for every chart: ink text, paper tooltips, our fonts.
+  if (window.Chart) {
+    Chart.defaults.font.family = "'Bricolage Grotesque Variable', sans-serif";
+    Chart.defaults.color = '#3b352b';
+  }
 
   function destroyIfExists(chartRef) {
     if (chartRef && typeof chartRef.destroy === 'function') {
@@ -71,7 +77,7 @@ const ChartHelpers = (() => {
       datasets.push({
         label: 'BB Upper', data: indicators.bbUpper, borderColor: COLORS.bbBand,
         borderDash: [4, 4], borderWidth: 1, pointRadius: 0, yAxisID: 'price', order: 3,
-        fill: '+1', backgroundColor: 'rgba(139,148,158,0.06)',
+        fill: '+1', backgroundColor: 'rgba(139,92,246,0.06)',
       });
     }
     if (indicators.bbLower) {
@@ -124,31 +130,31 @@ const ChartHelpers = (() => {
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
-            labels: { color: '#8b949e', boxWidth: 12, font: { size: 11 } },
+            labels: { color: '#776d5c', boxWidth: 12, font: { size: 11 } },
             position: 'top',
           },
           tooltip: {
-            backgroundColor: '#161b22',
-            borderColor: '#30363d',
+            backgroundColor: '#17140f',
+            borderColor: '#17140f',
             borderWidth: 1,
-            titleColor: '#e6edf3',
-            bodyColor: '#e6edf3',
+            titleColor: '#ffd23f',
+            bodyColor: '#fffaf0',
           },
         },
         scales: {
           x: {
             grid: { color: COLORS.grid },
-            ticks: { color: '#8b949e', maxTicksLimit: 8, font: { size: 10 } },
+            ticks: { color: '#776d5c', maxTicksLimit: 8, font: { size: 10 } },
           },
           price: {
             position: 'left',
             grid: { color: COLORS.grid },
-            ticks: { color: '#8b949e', font: { size: 10 } },
+            ticks: { color: '#776d5c', font: { size: 10 } },
           },
           volume: {
             position: 'right',
             grid: { display: false },
-            ticks: { color: '#8b949e', font: { size: 10 } },
+            ticks: { color: '#776d5c', font: { size: 10 } },
             max: Math.max(...volumes) * 4,
           },
         },
@@ -162,7 +168,7 @@ const ChartHelpers = (() => {
       data: {
         labels,
         datasets: [{
-          label, data, borderColor: color, backgroundColor: `${color}22`,
+          label, data, borderColor: color, backgroundColor: `${color}33`,
           borderWidth: 2, pointRadius: 0, tension: 0.25, fill: true,
         }],
       },
@@ -171,8 +177,8 @@ const ChartHelpers = (() => {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { color: COLORS.grid }, ticks: { color: '#8b949e', font: { size: 10 }, maxTicksLimit: 8 } },
-          y: { grid: { color: COLORS.grid }, ticks: { color: '#8b949e', font: { size: 10 } } },
+          x: { grid: { color: COLORS.grid }, ticks: { color: '#776d5c', font: { size: 10 }, maxTicksLimit: 8 } },
+          y: { grid: { color: COLORS.grid }, ticks: { color: '#776d5c', font: { size: 10 } } },
         },
       },
     });
@@ -181,29 +187,29 @@ const ChartHelpers = (() => {
   function buildBarChart(canvas, labels, data, label, color) {
     return new Chart(canvas, {
       type: 'bar',
-      data: { labels, datasets: [{ label, data, backgroundColor: color, borderRadius: 3 }] },
+      data: { labels, datasets: [{ label, data, backgroundColor: color, borderColor: '#17140f', borderWidth: 1.5, borderRadius: 3, maxBarThickness: 48 }] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: '#8b949e', font: { size: 9 } } },
-          y: { grid: { color: COLORS.grid }, ticks: { color: '#8b949e', font: { size: 10 } } },
+          x: { grid: { display: false }, ticks: { color: '#776d5c', font: { size: 9 } } },
+          y: { grid: { color: COLORS.grid }, ticks: { color: '#776d5c', font: { size: 10 } } },
         },
       },
     });
   }
 
   function buildPieChart(canvas, labels, data) {
-    const palette = ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#bc8cff', '#39c5cf', '#ff9492', '#8b949e'];
+    const palette = ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#bc8cff', '#39c5cf', '#ff9492', '#776d5c'];
     return new Chart(canvas, {
       type: 'pie',
-      data: { labels, datasets: [{ data, backgroundColor: palette }] },
+      data: { labels, datasets: [{ data, backgroundColor: palette, borderColor: '#17140f', borderWidth: 2 }] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { color: '#8b949e', boxWidth: 10, font: { size: 10 } } },
+          legend: { position: 'bottom', labels: { color: '#776d5c', boxWidth: 10, font: { size: 10 } } },
         },
       },
     });

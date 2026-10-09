@@ -2,6 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate } from '../middleware/auth.js';
 import marketData from '../services/marketData.js';
+import { cleanSymbol } from '../services/validate.js';
 import strategyEngine, { STRATEGY_LIST, STRATEGY_STYLES } from '../services/strategyEngine.js';
 import {
   calcSMA,
@@ -26,9 +27,20 @@ const marketLimiter = rateLimit({
 router.use(authenticate);
 router.use(marketLimiter);
 
+// Every :symbol is normalized and validated once, here.
+router.param('symbol', (req, res, next, raw) => {
+  const sym = cleanSymbol(raw);
+  if (!sym) return res.status(400).json({ error: 'Invalid ticker symbol' });
+  req.params.symbol = sym;
+  next();
+});
+
+const PERIODS = new Set(['1mo', '3mo', '6mo', '1y']);
+const INTERVALS = new Set(['1d', '1wk']);
+
 router.get('/quote/:symbol', async (req, res) => {
   try {
-    const data = await marketData.getQuote(req.params.symbol.toUpperCase());
+    const data = await marketData.getQuote(req.params.symbol);
     res.json(data);
   } catch (err) {
     console.error('Quote error:', err);
@@ -38,8 +50,9 @@ router.get('/quote/:symbol', async (req, res) => {
 
 router.get('/candles/:symbol', async (req, res) => {
   try {
-    const { period = '3mo', interval = '1d' } = req.query;
-    const data = await marketData.getCandles(req.params.symbol.toUpperCase(), period, interval);
+    const period = PERIODS.has(req.query.period) ? req.query.period : '3mo';
+    const interval = INTERVALS.has(req.query.interval) ? req.query.interval : '1d';
+    const data = await marketData.getCandles(req.params.symbol, period, interval);
     res.json(data);
   } catch (err) {
     console.error('Candles error:', err);
@@ -49,7 +62,7 @@ router.get('/candles/:symbol', async (req, res) => {
 
 router.get('/profile/:symbol', async (req, res) => {
   try {
-    const data = await marketData.getProfile(req.params.symbol.toUpperCase());
+    const data = await marketData.getProfile(req.params.symbol);
     res.json(data);
   } catch (err) {
     console.error('Profile error:', err);
@@ -59,7 +72,7 @@ router.get('/profile/:symbol', async (req, res) => {
 
 router.get('/fundamentals/:symbol', async (req, res) => {
   try {
-    const data = await marketData.getFundamentals(req.params.symbol.toUpperCase());
+    const data = await marketData.getFundamentals(req.params.symbol);
     res.json(data);
   } catch (err) {
     console.error('Fundamentals error:', err);
@@ -69,7 +82,7 @@ router.get('/fundamentals/:symbol', async (req, res) => {
 
 router.get('/news/:symbol', async (req, res) => {
   try {
-    const data = await marketData.getNews(req.params.symbol.toUpperCase());
+    const data = await marketData.getNews(req.params.symbol);
     res.json(data);
   } catch (err) {
     console.error('News error:', err);
@@ -85,9 +98,9 @@ const FUNDAMENTALS_STRATEGIES = new Set(['quality_compounder']);
 
 router.get('/strategy/:symbol', async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = req.params.symbol;
     const { strategy } = req.query;
-    if (!strategy) {
+    if (!strategy || !STRATEGY_LIST.some((s) => s.id === strategy)) {
       return res.status(400).json({ error: 'strategy query param is required' });
     }
 
@@ -122,7 +135,7 @@ router.get('/strategy/:symbol', async (req, res) => {
 
 router.get('/analysis/:symbol', async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = req.params.symbol;
 
     const [candles, quote, profile, news, spyCandles] = await Promise.all([
       marketData.getCandles(symbol, '1y', '1d'),
@@ -250,7 +263,7 @@ router.get('/batch-quotes', async (req, res) => {
     if (!symbols) {
       return res.status(400).json({ error: 'symbols query param is required' });
     }
-    const symbolList = symbols.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+    const symbolList = [...new Set(String(symbols).split(',').map(cleanSymbol).filter(Boolean))].slice(0, 20);
     const data = await marketData.getMultipleQuotes(symbolList);
     res.json(data);
   } catch (err) {

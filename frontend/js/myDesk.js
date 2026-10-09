@@ -83,7 +83,7 @@ const MyDeskSection = (() => {
         <select class="input" id="desk-strategy-select">${strategySelectHtml()}</select>
         <span class="badge badge-hold" id="desk-signal-indicator">NEUTRAL</span>
       </div>
-      <div class="text-dim" id="desk-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
+      <div class="muted" id="desk-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
 
       <div class="trading-layout">
         <div class="card">
@@ -140,7 +140,7 @@ const MyDeskSection = (() => {
       <div class="card section-spacer">
         <div class="collapsible-header" id="history-toggle">
           <div class="card-title" style="margin-bottom:0;">Trade History</div>
-          <i class="fa-solid fa-chevron-down"></i>
+          &#9662;
         </div>
         <div id="history-table-wrap" style="display:none; margin-top: 14px;">
           <table>
@@ -209,11 +209,11 @@ const MyDeskSection = (() => {
     if (!el) return;
     const style = currentStyle();
     if (style === 'long_term') {
-      el.innerHTML = `<i class="fa-solid fa-clock"></i> Long-term strategy — signal reflects fundamentals, not minute-to-minute price action.`;
+      el.innerHTML = `${Sprites.icon('clock', 16)} Long-term strategy — signal reflects fundamentals, not minute-to-minute price action.`;
     } else if (style === 'day') {
-      el.innerHTML = `<i class="fa-solid fa-bolt"></i> Day trading strategy — meant to be opened and closed within the same session.`;
+      el.innerHTML = `${Sprites.icon('bolt', 16)} Day trading strategy — meant to be opened and closed within the same session.`;
     } else if (style === 'swing') {
-      el.innerHTML = `<i class="fa-solid fa-chart-line"></i> Swing trading strategy — typically held for days to a few weeks.`;
+      el.innerHTML = `${Sprites.icon('chart', 16)} Swing trading strategy — typically held for days to a few weeks.`;
     } else {
       el.textContent = '';
     }
@@ -310,7 +310,7 @@ const MyDeskSection = (() => {
       message: `${state.orderSide === 'BUY' ? 'Buy' : 'Sell'} ${qty} shares of ${state.ticker} at ${displayPrice ? '$' + fmt(displayPrice) : 'market price'} (${orderType}) = $${estTotal}. Confirm?`,
       onConfirm: async () => {
         try {
-          await api.post(`/portfolio/${state.portfolioId}/trade`, {
+          UI.celebrate(await api.post(`/portfolio/${state.portfolioId}/trade`, {
             symbol: state.ticker,
             action: state.orderSide,
             quantity: qty,
@@ -318,9 +318,9 @@ const MyDeskSection = (() => {
             limitPrice: orderType === 'limit' ? limitPrice : undefined,
             strategy: state.strategy,
             reasoning: 'Manual trade from My Trading Desk',
-          });
+          }));
           await Promise.all([loadPositions(), loadStats()]);
-          showToast('success', 'Trade executed successfully');
+          showToast('success', 'Trade executed (simulated)');
         } catch (err) {
           showToast('error', err.message || 'Trade failed');
         }
@@ -365,7 +365,7 @@ const MyDeskSection = (() => {
       message: `Close your ${symbol} position at the current market price?`,
       onConfirm: async () => {
         try {
-          await api.post(`/portfolio/${state.portfolioId}/close/${posId}`, {});
+          UI.celebrate(await api.post(`/portfolio/${state.portfolioId}/close/${posId}`, {}));
           await Promise.all([loadPositions(), loadStats()]);
           showToast('success', 'Position closed');
         } catch (err) {
@@ -417,33 +417,12 @@ const MyDeskSection = (() => {
     document.getElementById('history-toggle').classList.toggle('collapsed', !state.historyVisible);
   }
 
-  function showConfirmModal({ title, message, onConfirm }) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal-box">
-        <h3>${title}</h3>
-        <p class="text-dim">${message}</p>
-        <div class="modal-actions">
-          <button class="btn" id="modal-cancel-btn">Cancel</button>
-          <button class="btn btn-primary" id="modal-confirm-btn">Confirm</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    overlay.querySelector('#modal-cancel-btn').addEventListener('click', () => overlay.remove());
-    overlay.querySelector('#modal-confirm-btn').addEventListener('click', async () => {
-      overlay.remove();
-      await onConfirm();
-    });
+  async function showConfirmModal({ title, message, onConfirm }) {
+    if (await UI.confirm({ title, message })) await onConfirm();
   }
 
   function showToast(type, message) {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3500);
+    UI.toast(message, type === 'success' ? 'success' : 'error');
   }
 
   return { render };

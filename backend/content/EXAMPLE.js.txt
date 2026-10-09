@@ -1,0 +1,40 @@
+// Reference example of a chapter file (shortened: real lessons need 10-18 steps).
+export default {
+  id: 'demo-ch1',
+  title: 'Demo Chapter',
+  blurb: 'A tiny example showing every step type.',
+  lessons: [
+    {
+      id: 'demo-1-example',
+      title: 'Why Your Lunch Money Shrinks',
+      summary: 'Inflation, explained with burritos.',
+      minutes: 10,
+      icon: 'coin',
+      steps: [
+        { type: 'read', title: 'The burrito index', html: `<p>In 2016 Maya's favorite burrito cost <strong>$7</strong>. Today it's about <span class="down">$11</span>. The burrito didn't get bigger. Your dollars got weaker. That slow leak is <span class="term" data-def="A general rise in prices over time, which means each dollar buys less.">inflation</span>.</p>`,
+          sprite: { who: 'penny', mood: 'warn', say: "Cash under the mattress loses a little every year. I would know. I am the mattress." } },
+        { type: 'callout', variant: 'fact', title: 'The Fed aims for 2%', html: `<p>The Federal Reserve targets about <span class="hl">2% inflation per year</span> on average.</p>` },
+        { type: 'diagram', name: 'inflation-basket', caption: 'Same groceries, bigger receipt. Watch the total climb year by year.' },
+        { type: 'widget', name: 'inflation', props: { amount: 100, rate: 3, years: 20 }, caption: 'Slide the inflation rate and see what $100 buys in the future.' },
+        { type: 'cards', title: 'Words to know', cards: [ { front: 'Inflation', back: 'Prices rising over time.' }, { front: 'Purchasing power', back: 'How much stuff a dollar can buy.' } ] },
+        { type: 'check', question: 'If prices rise 3% a year, what happens to $100 kept in a drawer?', options: ['It buys less each year', 'It grows 3%', 'Nothing changes'], answer: 0, explain: 'The number stays $100 but each dollar buys less.' },
+        { type: 'truefalse', statement: 'Inflation means your cash balance goes down.', answer: false, explain: 'The balance is unchanged; what it can buy goes down.' },
+        { type: 'numeric', question: 'A $50 item rises 10%. New price?', answer: 55, tolerance: 0.01, unit: '$', explain: '$50 x 1.10 = $55.' },
+        { type: 'match', prompt: 'Match each term to its meaning.', pairs: [ { left: 'Inflation', right: 'Prices rising' }, { left: 'Deflation', right: 'Prices falling' }, { left: 'CPI', right: 'A price index of a typical basket' } ] },
+        { type: 'order', prompt: 'Put these from least to most inflation-protected.', items: ['Cash in a drawer', 'High-yield savings', 'Diversified stock index fund'], explain: 'Over long periods, stocks have historically outpaced inflation; cash has not.' },
+        { type: 'quiz', questions: [
+          { q: 'What does inflation reduce?', options: ['Purchasing power', 'Your account balance', 'Interest rates', 'Taxes'], answer: 0, explain: 'Each dollar buys less.' },
+          { q: 'What inflation rate does the Fed target?', options: ['About 2%', 'About 0%', 'About 5%', 'About 10%'], answer: 0, explain: 'The Fed targets 2% over time.' },
+          { q: 'Which index tracks consumer prices?', options: ['CPI', 'S&P 500', 'VIX', 'GDP'], answer: 0, explain: 'The Consumer Price Index.' },
+          { q: 'At 3% inflation, roughly how long until prices double?', options: ['About 24 years', 'About 10 years', 'About 50 years', 'About 3 years'], answer: 0, explain: 'Rule of 72: 72 / 3 = 24.' },
+          { q: 'Maya keeps $1,000 in a 0% account for 5 years of 3% inflation. Its buying power is about...', options: ['$860', '$1,000', '$1,150', '$970'], answer: 0, explain: '1000 / 1.03^5 is about 863.' },
+        ] },
+      ],
+    },
+  ],
+  bossQuestions: [
+    { q: 'Inflation reduces...', options: ['Purchasing power', 'Nominal balances', 'Tax rates', 'Stock supply'], answer: 0, explain: 'Each dollar buys less.' },
+    { q: 'CPI measures...', options: ['Consumer prices', 'Stock prices', 'Corporate profits', 'Interest rates'], answer: 0, explain: 'Consumer Price Index.' },
+    { q: 'The Fed targets inflation of about...', options: ['2%', '0%', '5%', '8%'], answer: 0, explain: 'Long-run 2% target.' },
+  ],
+};

@@ -1,6 +1,6 @@
 -- TradeIQ security migration 001
--- Run this ONCE against your existing production database.
--- Safe to re-run: every statement uses IF NOT EXISTS / IF EXISTS guards.
+-- Applied automatically by `npm run migrate`. Safe to re-run: every statement
+-- uses IF NOT EXISTS / IF EXISTS guards.
 
 -- Account lockout tracking on users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_count INTEGER DEFAULT 0;
@@ -25,10 +25,3 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_admin_audit_log_target ON admin_audit_log(target_user_id);
-
--- Sanity check: confirm the new columns/tables exist
-SELECT
-  (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'locked_until') AS users_lockout_col,
-  (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'refresh_tokens' AND column_name = 'family_id') AS refresh_family_col,
-  (SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'admin_audit_log') AS audit_table;
--- Expect: 1, 1, 1

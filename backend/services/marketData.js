@@ -4,7 +4,7 @@ import YahooFinance from 'yahoo-finance2';
 // Schema validation logging is disabled because Yahoo's undocumented API occasionally returns
 // fields that don't match the library's internal schema, which would otherwise spam the console
 // on minor upstream changes without indicating an actual problem with our requests.
-const yahooFinance = new YahooFinance({ validation: { logErrors: false, logOptionsErrors: false } });
+const yahooFinance = new YahooFinance({ validation: { logErrors: false, logOptionsErrors: false }, suppressNotices: ['yahooSurvey'] });
 
 // Every outbound call to Yahoo gets an explicit timeout so a hung upstream
 // request can't tie up our event loop / a request handler indefinitely. Without

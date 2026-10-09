@@ -4,240 +4,232 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import helmet from 'helmet';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { Server as SocketIOServer } from 'socket.io';
-import jwt from 'jsonwebtoken';
 
+import { config } from './config.js';
 import { query } from './db/pool.js';
+import { verifyAccessToken } from './services/tokens.js';
 import authRoutes from './routes/auth.js';
+import meRoutes from './routes/me.js';
 import marketRoutes from './routes/market.js';
 import portfolioRoutes from './routes/portfolio.js';
 import lessonsRoutes from './routes/lessons.js';
 import adminRoutes from './routes/admin.js';
+import emailRoutes from './routes/email.js';
 import { startMarketCacheJobs } from './jobs/marketCache.js';
 import { startDataRetentionJobs } from './jobs/dataRetention.js';
+import { startEmailJobs } from './jobs/emailJobs.js';
 
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const server = http.createServer(app);
 
-// Railway (and most PaaS providers) terminate TLS and proxy requests to the app.
-// Without this, Express can't tell real client IPs from the proxy's IP, which
-// breaks IP-based rate limiting and the "secure" check helmet's HSTS relies on.
-// `1` trusts exactly one hop (the platform's own edge proxy) rather than blindly
-// trusting the whole X-Forwarded-For chain, which would let a client spoof its IP.
+// Railway (and most PaaS hosts) terminate TLS at a proxy. Trust exactly one hop
+// so req.ip is the real client (for rate limits) without letting clients spoof it.
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-// --- Security & core middleware ---
+// --- Security headers ---
+// The CSP only allows scripts from our own origin. Everything the frontend
+// needs (Chart.js, fonts, socket.io client) is served locally from npm
+// packages, so no third-party CDN can inject code and no visitor IPs leak to
+// font CDNs.
 app.use(helmet({
-  // Force HTTPS for a full year, including subdomains, once a browser has seen this header once.
-  // Safe to enable since Railway always serves over HTTPS; only relevant if you ever add a custom domain.
-  hsts: { maxAge: 31536000, includeSubDomains: true },
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'font-src': ["'self'"],
+      'img-src': ["'self'", 'data:'],
+      'connect-src': ["'self'"],
+      'frame-ancestors': ["'none'"],
+      'form-action': ["'self'"],
+      'object-src': ["'none'"],
+      'base-uri': ["'self'"],
+      'upgrade-insecure-requests': config.isProd ? [] : null,
+    },
+  },
+  hsts: config.isProd ? { maxAge: 31536000, includeSubDomains: true } : false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginEmbedderPolicy: false,
 }));
-app.use(cors({ origin: FRONTEND_URL, credentials: true }));
-// Explicit body size cap: prevents large request bodies from being used as a cheap
-// memory/CPU exhaustion vector. 100kb comfortably covers every real payload this
-// app sends (trade orders, lesson quiz answers, analysis text); nothing legitimate
-// needs more.
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  next();
+});
+
+// The frontend is served from this same origin, so CORS is only needed if you
+// deliberately host the UI elsewhere (set CORS_ORIGIN for that).
+if (process.env.CORS_ORIGIN) app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+
 app.use(express.json({ limit: '100kb' }));
+app.use(cookieParser());
 
 // --- Rate limiting ---
-// Looser limiter for general auth traffic (register, check-username, verify-email).
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
+const limiter = (windowMin, max, message, keyGenerator) => rateLimit({
+  windowMs: windowMin * 60 * 1000,
+  max,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later' },
+  message: { error: message },
+  ...(keyGenerator ? { keyGenerator } : {}),
 });
-// Strict limiter specifically for credential-guessing-prone endpoints (login, password
-// reset). Kept separate from the general auth limiter so a burst of registration
-// traffic can't use up the budget that protects login from brute-forcing, and vice versa.
-const credentialLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 8,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts, please try again in a few minutes' },
-  keyGenerator: (req) => `${req.ip}:${(req.body && req.body.email) || ''}`,
-});
+
+const ipKey = (req) => rateLimit.ipKeyGenerator ? rateLimit.ipKeyGenerator(req.ip) : req.ip;
+// Per IP+username, so one attacker can't burn through guesses on one account
+// and a busy school network doesn't lock everyone out at once.
+const credentialLimiter = limiter(15, config.isProd ? 10 : 500, 'Too many attempts. Wait a few minutes and try again.',
+  (req) => `${ipKey(req)}:${String(req.body?.username || '').toLowerCase().slice(0, 40)}`);
+const signupLimiter = limiter(60, config.isProd ? 8 : 200, 'Too many accounts created from this network. Try again later.');
+const authLimiter = limiter(15, config.isProd ? 120 : 2000, 'Too many requests, please try again later.');
+const apiLimiter = limiter(1, 300, 'Slow down a little.');
+
 app.use('/api/auth/login', credentialLimiter);
+app.use('/api/auth/recover', credentialLimiter);
 app.use('/api/auth/forgot-password', credentialLimiter);
 app.use('/api/auth/reset-password', credentialLimiter);
+app.use('/api/auth/register', signupLimiter);
 app.use('/api/auth', authLimiter);
+app.use('/api', apiLimiter);
 
-// --- Mount API routes ---
+// --- API routes ---
 app.use('/api/auth', authRoutes);
+app.use('/api/me', meRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/lessons', lessonsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/email', emailRoutes);
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+app.get('/api/health', async (req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  } catch {
+    res.status(503).json({ status: 'db-unavailable' });
+  }
+});
 
-// --- Serve frontend static files ---
+// Public, non-secret site settings used by the legal pages and footer.
+app.get('/api/site', (req, res) => {
+  res.json({ ...config.site, termsVersion: config.termsVersion });
+});
+
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
+// --- Static files ---
 const frontendPath = path.join(__dirname, '..', 'frontend');
-app.use(express.static(frontendPath));
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
+const nm = path.join(__dirname, 'node_modules');
+const staticOpts = { maxAge: config.isProd ? '7d' : 0, immutable: false };
+app.use('/vendor/chart.umd.min.js', (req, res) => res.sendFile(path.join(nm, 'chart.js', 'dist', 'chart.umd.min.js')));
+app.use('/vendor/fonts/bricolage', express.static(path.join(nm, '@fontsource-variable', 'bricolage-grotesque'), staticOpts));
+app.use('/vendor/fonts/silkscreen', express.static(path.join(nm, '@fontsource', 'silkscreen'), staticOpts));
+app.use('/vendor/fonts/jetbrains', express.static(path.join(nm, '@fontsource', 'jetbrains-mono'), staticOpts));
+
+app.get('/.well-known/security.txt', (req, res) => {
+  res.type('text/plain').send(`Contact: mailto:${config.site.contactEmail}\nPreferred-Languages: en\nPolicy: ${config.appUrl}/terms\n`);
+});
+
+app.use(express.static(frontendPath, { maxAge: config.isProd ? '1h' : 0, index: false }));
+// Client-side routes (/learn, /lesson/x, /terms...) all get the app shell.
+app.get('*', (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
-// --- Generic error handler (catches anything that slips past route-level try/catch) ---
+// --- Error handler: log details server-side, never leak them to clients ---
 app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Request too large' });
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON' });
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ error: 'Something went wrong on our end' });
 });
 
 // =========================================================
-// Socket.io real-time layer
+// Socket.io: live "who's online" for the admin dashboard
 // =========================================================
 const io = new SocketIOServer(server, {
-  cors: { origin: FRONTEND_URL, credentials: true },
+  cors: process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN, credentials: true } : undefined,
+  maxHttpBufferSize: 10_000,
 });
 
-// In-memory online users map: userId -> { username, socketId, connectedAt, lastActivity, currentPage }
 const onlineUsers = new Map();
 app.set('onlineUsers', onlineUsers);
 app.set('io', io);
 
-function broadcastOnlineCount() {
-  io.to('admins').emit('online_count', onlineUsers.size);
-}
-
-function broadcastAdminOnlineUsers() {
-  const list = Array.from(onlineUsers.entries()).map(([userId, info]) => ({
-    userId,
-    username: info.username,
-    connectedAt: info.connectedAt,
-    lastActivity: info.lastActivity,
-    currentPage: info.currentPage,
+function adminOnlineList() {
+  return Array.from(onlineUsers.entries()).map(([userId, info]) => ({
+    userId, username: info.username, connectedAt: info.connectedAt, lastActivity: info.lastActivity, currentPage: info.currentPage,
   }));
-  io.to('admins').emit('admin_online_users', list);
+}
+function broadcastPresence() {
+  io.to('admins').emit('online_count', onlineUsers.size);
+  io.to('admins').emit('admin_online_users', adminOnlineList());
 }
 
-async function buildAdminStatsPayload() {
-  const totalUsersResult = await query('SELECT COUNT(*)::int AS count FROM users');
-  const newTodayResult = await query("SELECT COUNT(*)::int AS count FROM users WHERE created_at >= CURRENT_DATE");
-  const newWeekResult = await query("SELECT COUNT(*)::int AS count FROM users WHERE created_at >= NOW() - INTERVAL '7 days'");
-  const totalTradesResult = await query('SELECT COUNT(*)::int AS count FROM trades');
-  const totalLessonsResult = await query('SELECT COUNT(*)::int AS count FROM lesson_progress WHERE completed = TRUE');
-  const topStrategiesResult = await query(`
-    SELECT strategy, COUNT(*)::int AS count FROM trades
-    WHERE strategy IS NOT NULL GROUP BY strategy ORDER BY count DESC LIMIT 5
-  `);
-  const recentRegResult = await query(`
-    SELECT username, email, created_at AS "createdAt" FROM users ORDER BY created_at DESC LIMIT 10
-  `);
-
-  return {
-    totalUsers: totalUsersResult.rows[0].count,
-    activeNow: onlineUsers.size,
-    newUsersToday: newTodayResult.rows[0].count,
-    newUsersThisWeek: newWeekResult.rows[0].count,
-    totalTrades: totalTradesResult.rows[0].count,
-    totalLessonsCompleted: totalLessonsResult.rows[0].count,
-    topStrategies: topStrategiesResult.rows,
-    recentRegistrations: recentRegResult.rows,
-  };
-}
-
-io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
-  if (!token) return next(new Error('Authentication required'));
+io.use(async (socket, next) => {
   try {
-    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    socket.user = { userId: payload.userId, username: payload.username, role: payload.role };
+    const payload = verifyAccessToken(socket.handshake.auth?.token);
+    // Role comes from the database, not the token, before joining the admin room.
+    const { rows } = await query('SELECT role, is_active FROM users WHERE id = $1', [payload.userId]);
+    if (!rows[0]?.is_active) return next(new Error('Account not available'));
+    socket.user = { userId: payload.userId, username: payload.username, role: rows[0].role };
     next();
-  } catch (err) {
+  } catch {
     next(new Error('Invalid or expired token'));
   }
 });
 
+const PAGE_RE = /^[a-z0-9-]{1,40}$/;
 io.on('connection', async (socket) => {
   const { userId, username, role } = socket.user;
+  if (role === 'admin') socket.join('admins');
 
-  if (role === 'admin') {
-    socket.join('admins');
-  }
-  socket.join('users');
-
-  onlineUsers.set(userId, {
-    username,
-    socketId: socket.id,
-    connectedAt: new Date().toISOString(),
-    lastActivity: new Date().toISOString(),
-    currentPage: 'ai-trader',
-  });
+  const now = new Date().toISOString();
+  onlineUsers.set(userId, { username, socketId: socket.id, connectedAt: now, lastActivity: now, currentPage: 'learn' });
 
   try {
-    // User agent is truncated since the full string can be more identifying than
-    // needed here — this is only ever used (if at all) to spot anomalies like an
-    // unfamiliar device/browser combo, not to fingerprint the exact build/version.
-    const truncatedUserAgent = (socket.handshake.headers['user-agent'] || '').slice(0, 120) || null;
     await query(
-      `INSERT INTO user_sessions (user_id, socket_id, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4)`,
-      [userId, socket.id, socket.handshake.address, truncatedUserAgent]
+      'INSERT INTO user_sessions (user_id, socket_id, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
+      [userId, socket.id, socket.handshake.address, (socket.handshake.headers['user-agent'] || '').slice(0, 120) || null]
     );
   } catch (err) {
     console.error('Failed to log session:', err.message);
   }
-
-  broadcastOnlineCount();
-  broadcastAdminOnlineUsers();
+  broadcastPresence();
 
   socket.on('page_change', (section) => {
     const info = onlineUsers.get(userId);
-    if (info) {
+    if (info && typeof section === 'string' && PAGE_RE.test(section)) {
       info.currentPage = section;
       info.lastActivity = new Date().toISOString();
-      onlineUsers.set(userId, info);
-      broadcastAdminOnlineUsers();
+      broadcastPresence();
     }
   });
 
   socket.on('disconnect', async () => {
-    onlineUsers.delete(userId);
+    if (onlineUsers.get(userId)?.socketId === socket.id) onlineUsers.delete(userId);
     try {
-      await query(
-        `UPDATE user_sessions SET disconnected_at = NOW() WHERE socket_id = $1`,
-        [socket.id]
-      );
+      await query('UPDATE user_sessions SET disconnected_at = NOW() WHERE socket_id = $1', [socket.id]);
     } catch (err) {
       console.error('Failed to update session on disconnect:', err.message);
     }
-    broadcastOnlineCount();
-    broadcastAdminOnlineUsers();
+    broadcastPresence();
   });
 });
 
-// Emit admin_stats every 30 seconds to the admins room
-setInterval(async () => {
-  if (io.sockets.adapter.rooms.get('admins')?.size > 0) {
-    try {
-      const payload = await buildAdminStatsPayload();
-      io.to('admins').emit('admin_stats', payload);
-    } catch (err) {
-      console.error('Failed to broadcast admin stats:', err.message);
-    }
-  }
-}, 30000);
-
-// --- Start scheduled jobs ---
+// --- Start ---
 startMarketCacheJobs();
 startDataRetentionJobs();
+startEmailJobs();
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`TradeIQ backend listening on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+server.listen(config.port, () => {
+  console.log(`TradeIQ listening on ${config.appUrl} (port ${config.port}, ${config.isProd ? 'production' : 'development'})`);
+  if (!config.email.resendApiKey) console.log('[email] RESEND_API_KEY not set: emails will be printed to this console instead of sent.');
 });
 
 export default app;

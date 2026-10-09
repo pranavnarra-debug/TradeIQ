@@ -30,7 +30,7 @@ you're stressed and time-pressured in the moment.
   This force-logs-out every session for that account and blocks new logins
   while you investigate.
 - **Suspected server/database compromise**: Rotate `DATABASE_URL`,
-  `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `RESEND_API_KEY` in Railway.
+  `JWT_ACCESS_SECRET`, `JWT_EXAM_SECRET` (if set), and `RESEND_API_KEY` in Railway.
   Rotating the JWT secrets immediately invalidates every active session
   app-wide, forcing everyone to log in again — disruptive, but appropriate
   if you believe the secrets themselves may be exposed.
@@ -45,6 +45,8 @@ you're stressed and time-pressured in the moment.
 - Query `admin_audit_log` for any unexpected admin actions.
 - Query `user_sessions` for unfamiliar IP addresses / connection patterns
   on the affected account(s) (remember: this table only retains 30 days).
+- Refresh tokens and email links are stored only as SHA-256 hashes, recovery codes as bcrypt
+  hashes, so a database read alone doesn't hand out working sessions.
 - Check `refresh_tokens` for a `family_id` with an unusually long chain of
   rotations, or any row with `revoked = TRUE` that was reused (this would
   have already triggered an automatic full-family revocation, but the
@@ -79,9 +81,13 @@ Once resolved, write a short note (even just to yourself) covering:
 - **Audit trail of admin actions**: `SELECT * FROM admin_audit_log ORDER BY created_at DESC;`
 - **Force logout one user**: `DELETE FROM refresh_tokens WHERE user_id = <id>;`
 - **Force logout everyone** (nuclear option — only for a suspected secret-level compromise):
-  rotate `JWT_ACCESS_SECRET` in Railway and redeploy. Every existing access
-  token becomes invalid immediately; refresh tokens still work once users
-  log in again normally, since they're independent of the JWT secret.
+  run `DELETE FROM refresh_tokens;` AND rotate `JWT_ACCESS_SECRET` in Railway,
+  then redeploy. Rotating the secret kills access tokens immediately; deleting
+  refresh tokens stops anyone from silently getting new ones.
+- **Admin panel shortcuts**: Admin → Users → click a user → "Sign out everywhere",
+  "Unlock login", "Deactivate". Every action lands in Admin → Audit log.
+- **Grant/revoke admin from the command line**: `npm run make-admin -- <username>`
+  (add `--revoke` to remove). Also signs that user out everywhere.
 - **Database restore (point-in-time recovery)**: Postgres service → Railway
   dashboard → look for the PITR/restore option. Restores to a specific
   timestamp, not just the latest snapshot. Confirmed enabled as of this
