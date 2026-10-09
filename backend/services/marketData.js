@@ -246,6 +246,18 @@ class MarketDataService {
     return results;
   }
 
+  async search(q) {
+    const cacheKey = `search:${q.toUpperCase()}`;
+    return this._withRetry(cacheKey, 'profile', async () => {
+      if (sec.secEnabled()) return sec.searchTickers(q);
+      const result = await yahooFinance.search(q, { quotesCount: 8, newsCount: 0 }, withTimeout());
+      return (result.quotes || [])
+        .filter((x) => ['EQUITY', 'ETF'].includes(x.quoteType) && x.symbol && !x.symbol.includes('.') )
+        .slice(0, 8)
+        .map((x) => ({ symbol: x.symbol, name: x.shortname || x.longname || x.symbol }));
+    });
+  }
+
   _periodToStartDate(period) {
     const now = new Date();
     const start = new Date(now);

@@ -80,7 +80,7 @@ const AiTraderSection = (() => {
     content.innerHTML = `
       <div class="controls-row">
         <select class="input" id="ai-strategy-select">${strategyOptionsHtml()}</select>
-        <select class="input" id="ai-ticker-select">${tickerOptionsHtml()}</select>
+        <div id="ai-ticker-select-picker"></div>
         <button class="btn btn-green ai-toggle-btn" id="ai-toggle-btn">&#9654; Start Bolt</button>
         <span class="countdown-indicator" id="ai-countdown"></span>
       </div>
@@ -148,12 +148,12 @@ const AiTraderSection = (() => {
         startPolling();
       }
     });
-    document.getElementById('ai-ticker-select').addEventListener('change', async (e) => {
-      state.ticker = e.target.value;
+    UI.tickerPicker(document.getElementById('ai-ticker-select-picker'), { value: state.ticker, onPick: async (sym) => {
+      state.ticker = sym;
       document.getElementById('chart-ticker-label').textContent = state.ticker;
       await loadChart();
       refreshSignal();
-    });
+    } });
     document.querySelectorAll('.period-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         document.querySelectorAll('.period-btn').forEach((b) => b.classList.remove('active'));

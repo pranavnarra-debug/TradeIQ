@@ -8,6 +8,7 @@
 import { config } from '../../config.js';
 
 const TICKERS_URL = 'https://www.sec.gov/files/company_tickers.json';
+const FUND_TICKERS_URL = 'https://www.sec.gov/files/company_tickers_mf.json';
 const FACTS_URL = (cik) => `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
 const SUBMISSIONS_URL = (cik) => `https://data.sec.gov/submissions/CIK${cik}.json`;
 
@@ -233,4 +234,35 @@ export async function getFilings(symbol) {
   return out;
 }
 
-export default { getProfile, getFundamentals, getFilings, secEnabled };
+/** Type-ahead over every SEC-registered ticker (about 10,000 US stocks and ETFs). */
+export async function searchTickers(q, limit = 8) {
+  const map = await secFetch(TICKERS_URL, DAY);
+  const needle = q.trim().toUpperCase();
+  if (!needle) return [];
+  const scored = [];
+  for (const r of Object.values(map || {})) {
+    const sym = r.ticker;
+    const name = String(r.title || '').toUpperCase();
+    let score = 0;
+    if (sym === needle) score = 100;
+    else if (sym.startsWith(needle)) score = 80 - sym.length;
+    else if (name.startsWith(needle)) score = 60;
+    else if (name.includes(` ${needle}`) || name.includes(needle)) score = 40;
+    if (score) scored.push({ score, symbol: sym.replace('-', '.'), name: r.title });
+  }
+  // ETFs live in the SEC's fund list (symbols only, no names). Five-letter
+  // tickers ending in X are mutual funds, which don't trade intraday: skip them.
+  const funds = await secFetch(FUND_TICKERS_URL, DAY).catch(() => null);
+  const seen = new Set(scored.map((x) => x.symbol));
+  for (const row of funds?.data || []) {
+    const sym = row[3];
+    if (!sym || seen.has(sym) || (sym.length === 5 && sym.endsWith('X'))) continue;
+    let score = 0;
+    if (sym === needle) score = 100;
+    else if (sym.startsWith(needle) && needle.length >= 2) score = 70 - sym.length;
+    if (score) { scored.push({ score, symbol: sym, name: 'Exchange-traded fund' }); seen.add(sym); }
+  }
+  return scored.sort((a, b) => b.score - a.score || a.symbol.length - b.symbol.length).slice(0, limit).map(({ symbol, name }) => ({ symbol, name }));
+}
+
+export default { getProfile, getFundamentals, getFilings, searchTickers, secEnabled };

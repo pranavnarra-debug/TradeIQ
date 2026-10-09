@@ -19,7 +19,7 @@ const router = express.Router();
 
 const marketLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 120,
   keyGenerator: (req) => req.user?.userId?.toString() || req.ip,
   message: { error: 'Too many market data requests, please slow down' },
 });
@@ -87,6 +87,19 @@ router.get('/news/:symbol', async (req, res) => {
   } catch (err) {
     console.error('News error:', err);
     res.status(500).json({ error: 'Failed to fetch news' });
+  }
+});
+
+// GET /api/market/search?q=apple  -> [{ symbol, name }]
+router.get('/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').replace(/[^A-Za-z0-9 .&'-]/g, '').trim().slice(0, 40);
+    if (!q) return res.json([]);
+    const data = await marketData.search(q);
+    res.json(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ error: 'Search failed' });
   }
 });
 

@@ -79,7 +79,7 @@ const MyDeskSection = (() => {
 
     content.innerHTML = `
       <div class="controls-row">
-        <select class="input" id="desk-ticker-select">${TICKERS.map((t) => `<option value="${t}" ${t === state.ticker ? 'selected' : ''}>${t}</option>`).join('')}</select>
+        <div id="desk-ticker-select-picker"></div>
         <select class="input" id="desk-strategy-select">${strategySelectHtml()}</select>
         <span class="badge badge-hold" id="desk-signal-indicator">NEUTRAL</span>
       </div>
@@ -154,13 +154,13 @@ const MyDeskSection = (() => {
     renderStrategyInfo();
     updateStyleNote();
 
-    document.getElementById('desk-ticker-select').addEventListener('change', async (e) => {
-      state.ticker = e.target.value;
+    UI.tickerPicker(document.getElementById('desk-ticker-select-picker'), { value: state.ticker, onPick: async (sym) => {
+      state.ticker = sym;
       document.getElementById('desk-chart-ticker').textContent = state.ticker;
       await loadChart();
       await refreshSignalIndicator();
       updateEstimatedCost();
-    });
+    } });
     document.getElementById('desk-strategy-select').addEventListener('change', (e) => {
       state.strategy = e.target.value;
       renderStrategyInfo();

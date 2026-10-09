@@ -180,7 +180,69 @@ const UI = (() => {
     if (window.App) window.App.refreshHud();
   }
 
-  return { $, $$, toast, modal, confirm, speech, cameo, confetti, countUp, setBusy, fmtMoney, celebrate };
+  // ---------- Ticker picker: search any US stock/ETF ----------
+  const POPULAR = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'TSLA', 'META', 'GOOGL', 'JPM', 'SPY', 'QQQ'];
+  const searchCache = new Map();
+  /**
+   * Renders a search box with type-ahead into `el`. Calls onPick(symbol)
+   * when the user chooses a ticker. Returns { set(symbol) }.
+   */
+  function tickerPicker(el, { value = 'AAPL', onPick }) {
+    el.classList.add('ticker-picker');
+    el.innerHTML = `<div class="tp-box"><input class="input tp-input" value="${escapeHtml(value)}" placeholder="Search any stock or ETF" autocomplete="off" spellcheck="false" aria-label="Search stocks" />
+      <div class="tp-list" hidden role="listbox"></div></div>
+      <div class="tp-chips">${POPULAR.map((t) => `<button type="button" class="tp-chip" data-sym="${t}">${t}</button>`).join('')}</div>`;
+    const input = el.querySelector('.tp-input');
+    const list = el.querySelector('.tp-list');
+    let current = value;
+    let timer = null;
+    let results = [];
+    let active = -1;
+    const mark = () => el.querySelectorAll('.tp-chip').forEach((c) => c.classList.toggle('on', c.dataset.sym === current));
+    const choose = (sym) => {
+      sym = String(sym || '').trim().toUpperCase();
+      if (!/^[A-Z0-9.^=-]{1,12}$/.test(sym)) return;
+      current = sym;
+      input.value = sym;
+      list.hidden = true;
+      mark();
+      onPick(sym);
+    };
+    const draw = () => {
+      list.hidden = !results.length;
+      list.innerHTML = results.map((r, i) => `<button type="button" class="tp-opt ${i === active ? 'on' : ''}" data-sym="${escapeHtml(r.symbol)}" role="option">
+        <b>${escapeHtml(r.symbol)}</b><span>${escapeHtml(r.name)}</span></button>`).join('');
+    };
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (!q) { results = []; draw(); return; }
+      timer = setTimeout(async () => {
+        const key = q.toUpperCase();
+        try {
+          if (!searchCache.has(key)) searchCache.set(key, await api.get(`/market/search?q=${encodeURIComponent(q)}`));
+          if (input.value.trim().toUpperCase() !== key) return;
+          results = searchCache.get(key);
+          active = results.length ? 0 : -1;
+          draw();
+        } catch { /* ignore */ }
+      }, 250);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { active = Math.min(results.length - 1, active + 1); draw(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { active = Math.max(0, active - 1); draw(); e.preventDefault(); }
+      else if (e.key === 'Enter') { e.preventDefault(); choose(active >= 0 && results[active] ? results[active].symbol : input.value); }
+      else if (e.key === 'Escape') { list.hidden = true; input.value = current; }
+    });
+    input.addEventListener('focus', () => input.select());
+    input.addEventListener('blur', () => setTimeout(() => { list.hidden = true; if (!input.value.trim()) input.value = current; }, 150));
+    list.addEventListener('mousedown', (e) => { const b = e.target.closest('.tp-opt'); if (b) { e.preventDefault(); choose(b.dataset.sym); } });
+    el.querySelectorAll('.tp-chip').forEach((c) => c.addEventListener('click', () => choose(c.dataset.sym)));
+    mark();
+    return { set: (sym) => { current = sym; input.value = sym; mark(); } };
+  }
+
+  return { tickerPicker, $, $$, toast, modal, confirm, speech, cameo, confetti, countUp, setBusy, fmtMoney, celebrate };
 })();
 
 window.UI = UI;
