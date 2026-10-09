@@ -218,7 +218,7 @@ const App = (() => {
           ${site.contactEmail ? `<a href="mailto:${escapeHtml(site.contactEmail)}" data-external>Contact</a>` : ''}</div>
       </div>
       <div class="disclaimer-box"><b>Education only.</b> TradeIQ teaches; it doesn't give financial advice. All trading here uses simulated money.
-        Market data is for learning and may be delayed or wrong. Investing involves risk, including loss of principal. Talk to a licensed professional before making real financial decisions.</div>
+        Market data is for learning and may be delayed or wrong.${site.dataSources ? ` Prices: ${escapeHtml(site.dataSources.prices)}. Company financials and filings: ${escapeHtml(site.dataSources.company)}.` : ''} Investing involves risk, including loss of principal. Talk to a licensed professional before making real financial decisions.</div>
       <p class="muted" style="font-size:13px;margin-top:16px">&copy; ${new Date().getFullYear()} ${escapeHtml(site.legalEntity || 'TradeIQ')}</p>
     </div>`;
   }

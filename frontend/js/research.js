@@ -159,13 +159,13 @@ const ResearchSection = (() => {
           </div>
 
           <div class="card" style="margin-bottom: 16px;">
-            <div class="card-title">Recent News</div>
+            <div class="card-title">Recent news &amp; filings</div>
             ${a.news && a.news.length > 0 ? a.news.map((n) => `
               <div class="news-item">
                 <div class="news-item-title">${n.url ? `<a href="${escapeHtml(n.url)}" target="_blank" rel="noopener">${escapeHtml(n.title)}</a>` : escapeHtml(n.title)}</div>
                 <div class="news-item-meta">${escapeHtml(n.publisher) || ''} ${n.publishedAt ? '· ' + new Date(n.publishedAt).toLocaleDateString() : ''}</div>
               </div>
-            `).join('') : '<div class="empty-state">No recent news found</div>'}
+            `).join('') : '<div class="empty-state">No recent news or filings found</div>'}
           </div>
 
           <div class="card">

@@ -11,6 +11,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config.js';
 import { query } from './db/pool.js';
 import { verifyAccessToken } from './services/tokens.js';
+import { dataSources } from './services/marketData.js';
 import authRoutes from './routes/auth.js';
 import meRoutes from './routes/me.js';
 import marketRoutes from './routes/market.js';
@@ -117,7 +118,7 @@ app.get('/api/health', async (req, res) => {
 
 // Public, non-secret site settings used by the legal pages and footer.
 app.get('/api/site', (req, res) => {
-  res.json({ ...config.site, termsVersion: config.termsVersion });
+  res.json({ ...config.site, termsVersion: config.termsVersion, dataSources: dataSources() });
 });
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));

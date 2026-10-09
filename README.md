@@ -48,6 +48,10 @@ Without `RESEND_API_KEY`, emails are printed to the server console (with clickab
 cd backend && npm run make-admin -- yourusername
 ```
 
+## Market data
+
+Prices come from **Alpaca** (free IEX feed) when `ALPACA_KEY_ID` / `ALPACA_SECRET_KEY` are set. Company financials, profiles and recent filings come from **SEC EDGAR** (free public data) once `CONTACT_EMAIL` is set. Without either, the app falls back to Yahoo Finance, which is unlicensed and only meant for local development. Licensing details and the consent email for Alpaca: [docs/MARKET_DATA.md](docs/MARKET_DATA.md).
+
 ## Seeing your database
 
 Pick whichever is easiest:

@@ -1,4 +1,17 @@
 import YahooFinance from 'yahoo-finance2';
+import * as alpaca from './providers/alpaca.js';
+import * as sec from './providers/sec.js';
+
+// Which source serves what. Licensed/public sources win whenever they're
+// configured; Yahoo (unofficial, unlicensed) is only a fallback for local dev.
+//   prices:  Alpaca (ALPACA_KEY_ID + ALPACA_SECRET_KEY)  -> else Yahoo
+//   company: SEC EDGAR (needs CONTACT_EMAIL or SEC_USER_AGENT) -> else Yahoo
+export function dataSources() {
+  return {
+    prices: alpaca.alpacaEnabled() ? 'IEX via Alpaca' : 'Yahoo Finance (development fallback)',
+    company: sec.secEnabled() ? 'SEC EDGAR' : 'Yahoo Finance (development fallback)',
+  };
+}
 
 // yahoo-finance2 v3 exports a class; an instance exposes quote/historical/quoteSummary/search etc.
 // Schema validation logging is disabled because Yahoo's undocumented API occasionally returns
@@ -79,6 +92,7 @@ class MarketDataService {
   async getQuote(symbol) {
     const cacheKey = `quote:${symbol}`;
     return this._withRetry(cacheKey, 'quote', async () => {
+      if (alpaca.alpacaEnabled()) return alpaca.getQuote(symbol);
       const q = await yahooFinance.quote(symbol, {}, withTimeout());
       return {
         symbol: q.symbol,
@@ -100,6 +114,7 @@ class MarketDataService {
     const cacheKey = `candles:${symbol}:${period}:${interval}`;
     return this._withRetry(cacheKey, 'candles', async () => {
       const period1 = this._periodToStartDate(period);
+      if (alpaca.alpacaEnabled()) return alpaca.getCandles(symbol, period1, interval);
       const period2 = new Date();
       const result = await yahooFinance.chart(symbol, {
         period1,
@@ -123,6 +138,7 @@ class MarketDataService {
   async getProfile(symbol) {
     const cacheKey = `profile:${symbol}`;
     return this._withRetry(cacheKey, 'profile', async () => {
+      if (sec.secEnabled()) return sec.getProfile(symbol);
       const result = await yahooFinance.quoteSummary(symbol, {
         modules: ['assetProfile', 'summaryDetail'],
       }, withTimeout());
@@ -148,6 +164,11 @@ class MarketDataService {
   async getFundamentals(symbol) {
     const cacheKey = `fundamentals:${symbol}`;
     return this._withRetry(cacheKey, 'profile', async () => {
+      if (sec.secEnabled()) {
+        const q = await this.getQuote(symbol);
+        const f = await sec.getFundamentals(symbol, q && !q.error ? q.price : null);
+        return f; // {error} for ETFs/funds is a real answer, not a transient failure
+      }
       const result = await yahooFinance.quoteSummary(symbol, {
         modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail', 'assetProfile'],
       }, withTimeout());
@@ -190,6 +211,7 @@ class MarketDataService {
   async getNews(symbol) {
     const cacheKey = `news:${symbol}`;
     return this._withRetry(cacheKey, 'news', async () => {
+      if (sec.secEnabled()) return sec.getFilings(symbol);
       const result = await yahooFinance.search(symbol, { newsCount: 10 }, withTimeout());
       const news = result.news || [];
       return news.map((n) => ({
@@ -204,6 +226,15 @@ class MarketDataService {
   }
 
   async getMultipleQuotes(symbols) {
+    if (alpaca.alpacaEnabled()) {
+      try {
+        const quotes = await alpaca.getQuotes(symbols);
+        quotes.forEach((q) => { if (!q.error) this._cacheSet(`quote:${q.symbol}`, q); });
+        return quotes;
+      } catch (err) {
+        console.error('Alpaca batch quote failed:', err.message);
+      }
+    }
     const results = await Promise.all(
       symbols.map((symbol) =>
         this.getQuote(symbol).catch((err) => ({
