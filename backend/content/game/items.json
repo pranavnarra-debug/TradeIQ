@@ -6,7 +6,7 @@
     "power": "How hard your attacks hit once correct answers have charged your weapon.",
     "defense": "Cuts the damage you take from each boss hit (about 3% per point, capped at 60%).",
     "focus": "How much charge each correct answer gives your weapon, and how fast your dash recovers.",
-    "luck": "Critical-hit chance: 1% per point, capped at 15%. Never changes coins, drops or prices."
+    "luck": "Critical-hit chance: 2% per point, capped at 30%. Never changes coins, drops or prices."
   },
   "rarities": ["common", "uncommon", "rare", "epic", "legendary"],
   "effectTypes": {
@@ -19,7 +19,7 @@
     "crit_damage": "Critical hits deal +value% extra damage.",
     "thorns": "Reflect value% of damage taken back to the boss.",
     "coin_bonus": "+value% coins from quests (all sources combined cap at 25%).",
-    "xp_bonus": "+value% XP from battles (never lesson XP).",
+    "xp_bonus": "+value% XP from battles (never lesson XP; all sources combined cap at 25%).",
     "hint": "Once per fight, remove value wrong answer(s) from a question.",
     "dodge": "value% chance to dodge a boss attack automatically.",
     "low_hp_power": "+value% damage while below 30% HP. Reserved: not used in v1 because it rewards fighting on when nearly wiped out, the in-game version of revenge trading.",
@@ -27,19 +27,19 @@
     "damage_reduction": "Take value% less damage from every source.",
     "damage_cap": "No single boss hit can take more than value% of your max HP.",
     "buffer_hp": "Start each fight with a value-HP buffer bar that soaks damage before your HP. It does not refill during the fight.",
-    "telegraph": "Boss attack wind-ups become visible value seconds earlier.",
-    "start_charge": "Start each fight with value% weapon charge.",
-    "periodic_double": "Every value seconds of a fight, your next hit deals double damage.",
+    "telegraph": "Boss attack wind-ups become visible value seconds earlier (all sources combined cap at 0.6 seconds).",
+    "start_charge": "Start each fight with value% of a full weapon charge, rounded to whole pips (33 = 1 of 3 pips).",
+    "periodic_double": "Every value seconds of a fight, your next charged hit deals double damage. Periods don't add up: with several items, the shortest wins.",
     "dash_cooldown": "Your dash recharges value% faster.",
     "mix_bonus": "+value to every stat if your 4 armor pieces come from at least 3 different sets.",
-    "charge_hold": "Your weapon charge never fades while you wait. Value is unused (0).",
-    "hp_cost": "Lose value% of your max HP at the start of each fight (a fee or premium you pay up front).",
+    "charge_hold": "Your weapon charge never fades while you wait. Value is unused (0). Reserved: not used in v1 because charge never fades in the battle engine, so it would do nothing (Patience Charm uses shield_on_correct instead).",
+    "hp_cost": "Lose value% of your max HP at the start of each fight (a fee or premium you pay up front). All sources combined cap at 50%; it never counts as damage taken.",
     "damage_dealt_mod": "Change all damage you deal by value% (negative values are a tradeoff).",
-    "discount_window": "For 3 seconds after the boss lands a big attack, your hits deal +value% damage.",
-    "review_queue": "After the fight, up to value missed questions are added to your spaced-review queue.",
+    "discount_window": "For 3 seconds after the boss lands a big attack, your hits deal +value% damage. A big attack hits for at least 80% of the boss's hardest-hitting attack and must actually land (a shield soaking it still counts; a dodge doesn't).",
+    "review_queue": "After the fight, your trading journal lists up to value questions you missed, with the right answer and why.",
     "damage_over_time": "Your hits deal an extra value% of their damage spread over the next 5 seconds.",
     "last_stand": "Once per fight, a hit that would knock you out leaves you at value HP instead.",
-    "buff_extend": "Once per fight, extend one timed effect by value seconds."
+    "buff_extend": "Once per fight, when a timed effect (one with a duration) is about to expire, extend it by value seconds."
   },
   "effectNotes": [
     "Any effect may carry an optional \"duration\" in seconds; without it the effect lasts the whole fight.",
@@ -351,7 +351,7 @@
     {
       "id": "head-start-sabatons", "name": "Head-Start Sabatons", "slot": "boots", "set": "snowball-knight", "rarity": "rare", "world": 1, "price": 0,
       "stats": { "power": 0, "defense": 1, "focus": 3, "luck": 0 },
-      "effects": [ { "type": "start_charge", "value": 25, "text": "Start every fight with your weapon 25% charged." } ],
+      "effects": [ { "type": "start_charge", "value": 33, "text": "Start every fight with 1 of your 3 charge pips already loaded." } ],
       "unlock": "quest: q-w1-autopilot-engaged",
       "lesson": "Starting to invest at 17 instead of 30 can beat investing far more money later, because time does the heavy lifting.",
       "flavor": "Come pre-broken-in. Your future self says thanks."
@@ -776,7 +776,7 @@
       "id": "trading-journal-tome", "name": "Trading Journal Tome", "slot": "offhand", "set": null, "rarity": "uncommon", "world": 2, "price": 200,
       "stats": { "power": 0, "defense": 1, "focus": 4, "luck": 0 },
       "palette": { "A": "#8C3B2E", "B": "#F3E9D2", "C": "#2E2E38" },
-      "effects": [ { "type": "review_queue", "value": 5, "text": "After each fight, up to 5 missed questions go into your review queue." }, { "type": "xp_bonus", "value": 10, "text": "+10% XP from battles." } ],
+      "effects": [ { "type": "review_queue", "value": 5, "text": "After each fight, your journal lists up to 5 questions you missed, with the right answers." }, { "type": "xp_bonus", "value": 10, "text": "+10% XP from battles." } ],
       "unlock": "shop (World 2, after finishing 'Journal, Backtest, Paper Trade')",
       "lesson": "Traders who journal every trade learn from their mistakes instead of repeating them.",
       "flavor": "Page one: 'Note to self: stop doing that.'"
@@ -813,7 +813,7 @@
       "id": "patience-charm", "name": "Patience Charm", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 1, "price": 130,
       "stats": { "power": 0, "defense": 1, "focus": 2, "luck": 0 },
       "palette": { "A": "#6FA8DC", "B": "#F5F7FA", "C": "#E8B04B" },
-      "effects": [ { "type": "charge_hold", "value": 0, "text": "Your weapon charge never fades while you wait for an opening." } ],
+      "effects": [ { "type": "shield_on_correct", "value": 2, "text": "Every correct answer adds a 2-HP shield: small, steady deposits that keep you in the game." } ],
       "unlock": "shop (World 1, after finishing 'Dollar-Cost Averaging and Staying Put')",
       "lesson": "Time in the market beats timing the market; steady automatic investing keeps you in the game.",
       "flavor": "Does nothing quickly. On purpose."
@@ -876,7 +876,7 @@
       "id": "contango-compass", "name": "Contango Compass", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 4, "price": 450,
       "stats": { "power": 0, "defense": 2, "focus": 5, "luck": 2 },
       "palette": { "A": "#6B4F2A", "B": "#6FA8DC", "C": "#E3C16F" },
-      "effects": [ { "type": "buff_extend", "value": 15, "text": "Once per fight, roll one timed effect forward by 15 seconds." } ],
+      "effects": [ { "type": "buff_extend", "value": 15, "text": "Once per fight, roll an expiring timed effect (like a Protective Put policy) forward by 15 seconds." } ],
       "unlock": "shop (World 4)",
       "lesson": "Rolling a futures position to the next contract can cost or earn money depending on the shape of the futures curve.",
       "flavor": "Always points to next month."

@@ -7,10 +7,10 @@
 const AdminSection = (() => {
   let tab = 'overview';
   let charts = {};
-  // AI rivals: 'hidden' (default) -> 'blended' (mixed in, unmarked, to see how well they pass) -> 'tagged'.
-  let usersState = { page: 1, search: '', bots: 'hidden' };
-  const BOT_BUTTON = { hidden: 'Show AI rivals', blended: 'Reveal which are AI', tagged: 'Hide AI rivals' };
-  const BOT_NEXT = { hidden: 'blended', blended: 'tagged', tagged: 'hidden' };
+  // Everyone is listed together; 'tagged' marks which players are AI rivals (only you see this).
+  let usersState = { page: 1, search: '', bots: 'blended' };
+  const BOT_BUTTON = { blended: 'Reveal which are AI', tagged: 'Hide AI tags' };
+  const BOT_NEXT = { blended: 'tagged', tagged: 'blended' };
   let dbState = { table: 'users', page: 1, search: '', sort: '', dir: 'desc' };
   let listeners = false;
 
@@ -51,7 +51,7 @@ const AdminSection = (() => {
     const d = await api.get('/admin/dashboard');
     const metric = (label, val, id, icon) => `<div class="card admin-metric-card">${Sprites.icon(icon, 26)}<div class="metric-value" ${id ? `id="${id}"` : ''}>${val}</div><div class="metric-label">${label}</div></div>`;
     body.innerHTML = `<div class="admin-cards-row">
-        ${metric('Online now', d.activeNow, 'adm-online-count', 'heart')}${metric('Real users', d.totalUsers, '', 'person')}${d.aiRivals && usersState.bots !== 'hidden' ? metric('AI rivals', d.aiRivals, '', 'bolt') : ''}${metric('New today', d.newUsersToday, '', 'star')}
+        ${metric('Online now', d.activeNow, 'adm-online-count', 'heart')}${metric('Total users', d.totalUsers, '', 'person')}${metric('New today', d.newUsersToday, '', 'star')}
         ${metric('Active this week', d.activeThisWeek, '', 'fire')}${metric('Lessons completed', d.totalLessonsCompleted, '', 'book')}${metric('Exams passed', d.examsPassed, '', 'trophy')}
         ${metric('Simulated trades', d.totalTrades, '', 'chart')}${metric('Users with email', d.usersWithEmail, '', 'card')}</div>
       <div class="admin-charts-row">
@@ -103,7 +103,7 @@ const AdminSection = (() => {
   }
 
   async function loadUsers() {
-    const d = await api.get(`/admin/users?page=${usersState.page}&limit=25&search=${encodeURIComponent(usersState.search)}&kind=${usersState.bots === 'hidden' ? 'humans' : 'all'}`);
+    const d = await api.get(`/admin/users?page=${usersState.page}&limit=25&search=${encodeURIComponent(usersState.search)}&kind=all`);
     document.getElementById('u-table').innerHTML = `<table class="data-table"><thead><tr><th>User</th><th>Email</th><th>Role</th><th>XP</th><th>Lessons</th><th>Trades</th><th>Joined</th><th>Last login</th><th>Status</th></tr></thead><tbody>
       ${d.users.map((u) => `<tr class="user-row" data-id="${u.id}"><td><b>${escapeHtml(u.username)}</b>${u.isBot && usersState.bots === 'tagged' ? ' <span class="chip-tag" title="AI rival (only visible to you)">AI</span>' : ''}</td><td>${u.email ? `${escapeHtml(u.email)}${u.emailVerified ? ' ✓' : ''}` : '<span class="muted">none</span>'}</td>
         <td>${u.role === 'admin' ? '<span class="chip-tag" style="background:var(--sun)">admin</span>' : 'user'}</td><td class="mono">${u.xp}</td><td>${u.lessonsCompleted}</td><td>${u.tradesCount}</td>

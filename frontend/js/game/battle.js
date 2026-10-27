@@ -14,6 +14,11 @@ const Battle = (() => {
   const INK = '#17140f';
   const POP_COINS = 2; // matches POP_COINS in backend/routes/battles.js
   const POP_EVERY = 30; // seconds of play between Pop Quizzes (40 in Assist mode)
+  // Crit chance per luck point and its cap, in %. Keep in sync with stats.luck in backend/content/game/items.json.
+  const CRIT_PER_LUCK = 2;
+  const CRIT_CAP = 30;
+  const DISCOUNT_SECONDS = 3; // discount_window length
+  const DOT_SECONDS = 5; // damage_over_time spread
   let S = null; // current fight state
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -86,7 +91,8 @@ const Battle = (() => {
     ]);
     const mobImg = Object.fromEntries([...mobKinds].map((k, i) => [k, mobImgs[i]]));
 
-    const loadout = battle.loadout;
+    // Per-fight copy: buff_extend rolls timed effects (e.duration) forward in place.
+    const loadout = { ...battle.loadout, effects: (battle.loadout.effects || []).map((e) => ({ ...e })) };
     const speedMul = (boss.speed || 1) * (assist ? 0.7 : 1);
     S = {
       boss, battleId: battle.battleId, loadout, assist, ctx, canvas, playerImg, bossImg, mobImg,
@@ -98,6 +104,7 @@ const Battle = (() => {
         hp: loadout.hp + effSumFrom(loadout, 'buffer_hp'), maxHp: loadout.hp + effSumFrom(loadout, 'buffer_hp'),
         shield: 0, pips: 0, streak: 0, iframes: 0, dashCd: 0, dashT: 0, dashHeat: 0, fireCd: 0, flash: 0,
         damageTaken: 0, firstStrikeUsed: false, secondChanceUsed: false, hitCount: 0,
+        lastStands: 0, doubleT: 0, doubleReady: false,
       },
       b: {
         x: W - 220, y: H / 2, r: 40, hp: boss.hp, maxHp: boss.hp, shield: 0, speed: 85 * speedMul,
@@ -107,15 +114,36 @@ const Battle = (() => {
       bullets: [], shots: [], zones: [], minions: [], floaters: [], decoys: [],
       keys: new Set(), mouse: { x: W / 2, y: H / 2 }, joy: { x: 0, y: 0, active: false },
       q: null, qCd: 0, qChain: 0, popT: 0, popDue: false, sinceQ: 0, telegraphMul: assist ? 1.6 : 1, speedMul,
+      // A "big" boss attack (discount_window) hits for at least 80% of the boss's hardest-hitting attack.
+      bigHit: 0.8 * Math.max(...boss.attacks.map((a) => a.damage || 12)),
+      discountT: -1, dots: [], dotCarry: 0, dotTick: 0,
+      // periodic_double: periods don't add up, so the shortest one wins.
+      doubleEvery: Math.min(Infinity, ...effectsOf(loadout, 'periodic_double').map((e) => e.value || Infinity)),
+      rolls: effectsOf(loadout, 'buff_extend').map((e) => e.value || 0),
     };
+    startOfFight();
     if (S.bossActive) say(boss.intro, 3500);
     else { S.b.x = W - 90; S.b.y = 70; say(`Clear the waves and I'll come down myself.`, 3000); }
     bindInput();
     updateHud();
     S.raf = requestAnimationFrame(frame);
   }
+  function effectsOf(loadout, type) {
+    return (loadout.effects || []).filter((e) => e.type === type);
+  }
   function effSumFrom(loadout, type) {
-    return (loadout.effects || []).filter((e) => e.type === type).reduce((n, e) => n + (Number(e.value) || 0), 0);
+    return effectsOf(loadout, type).reduce((n, e) => n + (Number(e.value) || 0), 0);
+  }
+
+  /** Effects that apply once, as the fight begins. */
+  function startOfFight() {
+    const p = S.p;
+    // start_charge: value is % of a full 3-pip charge, rounded to whole pips.
+    const pre = clamp(Math.round((3 * effSum('start_charge')) / 100), 0, 3);
+    if (pre) { p.pips = pre; floater(p.x, p.y - 40, `Head start: +${pre} charge`, '#ffd23f'); }
+    // hp_cost: a fee or premium paid up front. It isn't damage taken, so it can't cost a flawless win.
+    const fee = Math.round((S.loadout.hp * clamp(effSum('hp_cost'), 0, 50)) / 100);
+    if (fee) { p.hp -= fee; floater(p.x, p.y - 62, `-${fee} HP paid up front`, '#ff5a4e'); }
   }
 
   // ---------------------------------------------------------------- input
@@ -241,9 +269,11 @@ const Battle = (() => {
       mult *= 1 + Math.min(5, p.streak) * (effSum('streak_damage') / 100);
       if (!p.firstStrikeUsed && has('first_strike')) mult *= 1 + effSum('first_strike') / 100;
       if (has('damage_dealt_mod')) mult *= 1 + effSum('damage_dealt_mod') / 100;
+      if (p.doubleReady) { p.doubleReady = false; mult *= 2; floater(p.x, p.y - 56, 'x2 shot!', '#e8b04b'); }
+      if (has('discount_window') && S.t <= S.discountT) { mult *= 1 + effSum('discount_window') / 100; floater(p.x, p.y - 56, 'Bought the dip!', '#2fa36b'); }
       let crit = false;
       if (!has('steady')) {
-        const chance = clamp((S.loadout.stats.luck || 0) * 2.5, 0, 40) / 100;
+        const chance = clamp((S.loadout.stats.luck || 0) * CRIT_PER_LUCK, 0, CRIT_CAP) / 100;
         if (Math.random() < chance) { crit = true; mult *= 2 + effSum('crit_damage') / 100; }
       }
       const dmg = Math.round(p.pips * (30 + 3 * power) * mult);
@@ -343,7 +373,7 @@ const Battle = (() => {
     }
     if (S.settlementCall) {
       S.settlementCall = false;
-      if (r.correct) heal(10); else { p.iframes = 0; hurtPlayer(10, null); }
+      if (r.correct) heal(10); else { p.iframes = 0; hurtPlayer(10, null, true); }
     }
     document.getElementById('b-qx').innerHTML = `<b>${r.correct ? 'Correct!' : 'Not quite.'}</b> ${escapeHtml(r.explain || '')}`;
     updateHud();
@@ -369,7 +399,8 @@ const Battle = (() => {
     floater(S.p.x, S.p.y - 30, `+${n} HP`, '#1fbf75');
   }
 
-  function hurtPlayer(base, src) {
+  /** minor = not a boss attack (mobs, minions, settlement): it can't open a discount_window. */
+  function hurtPlayer(base, src, minor) {
     const p = S.p;
     if (p.iframes > 0 || S.over) return;
     if (has('dodge') && Math.random() < clamp(effSum('dodge'), 0, 40) / 100) {
@@ -393,13 +424,28 @@ const Battle = (() => {
       floater(p.x, p.y - 30, `-${dmg}`, '#ff5a4e');
       if (has('thorns')) hurtBoss(Math.round(dmg * effSum('thorns') / 100), false, true);
     }
+    // discount_window: a big boss attack that lands (even into a shield) puts the boss "on sale".
+    if (!minor && base >= S.bigHit && has('discount_window')) {
+      if (S.t > S.discountT) floater(p.x, p.y - 52, `Discount Window: +${effSum('discount_window')}%`, '#2fa36b', 17);
+      S.discountT = S.t + DISCOUNT_SECONDS;
+    }
     p.iframes = 0.7;
     if (src && src.knock) { const a = Math.atan2(p.y - src.y, p.x - src.x); p.vx += Math.cos(a) * 300; p.vy += Math.sin(a) * 300; }
+    if (p.hp <= 0) {
+      // last_stand: each item saves you once per fight.
+      const stands = eff('last_stand');
+      if (p.lastStands < stands.length) {
+        p.hp = Math.max(1, Math.round(stands[p.lastStands].value || 1));
+        p.lastStands++;
+        p.iframes = 1.5;
+        floater(p.x, p.y - 52, 'Still in the game!', '#39d98a', 18);
+      }
+    }
     updateHud();
     if (p.hp <= 0) end('lost');
   }
 
-  function hurtBoss(dmg, crit, quiet) {
+  function hurtBoss(dmg, crit, quiet, tag) {
     const b = S.b;
     if (S.boss.mechanic?.type === 'mood_swing' && b.mood === 'euphoric') dmg = Math.round(dmg * 1.2);
     if (b.shield > 0) {
@@ -410,7 +456,7 @@ const Battle = (() => {
     if (dmg <= 0) return;
     b.hp -= dmg;
     b.flash = 0.15;
-    if (!quiet || dmg > 0) floater(b.x + (Math.random() - 0.5) * 30, b.y - 55, `${crit ? 'CRIT ' : ''}${dmg}`, crit ? '#ffd23f' : '#fffaf0', crit ? 22 : 16);
+    if (!quiet || dmg > 0) floater(b.x + (Math.random() - 0.5) * 30, b.y - 55, `${crit ? 'CRIT ' : tag ? `${tag} ` : ''}${dmg}`, crit ? '#ffd23f' : tag ? '#b49cff' : '#fffaf0', crit ? 22 : 16);
     updateHud();
     if (b.hp <= 0) { b.hp = 0; end('won'); }
   }
@@ -458,7 +504,8 @@ const Battle = (() => {
   // ---------------------------------------------------------------- boss attacks
   function startAttack(i) {
     const a = S.boss.attacks[i];
-    const tele = 0.7 * S.telegraphMul;
+    // telegraph: gear shows wind-ups earlier (all sources combined cap at 0.6s).
+    const tele = 0.7 * S.telegraphMul + clamp(effSum('telegraph'), 0, 0.6);
     const p = S.p;
     S.b.tele = { i, t: tele, total: tele, tx: p.x, ty: p.y, a };
     if (a.pattern === 'rain') {
@@ -569,6 +616,8 @@ const Battle = (() => {
     p.dashHeat = Math.max(0, p.dashHeat - dt * 0.45);
     p.fireCd = Math.max(0, p.fireCd - dt);
     p.flash = Math.max(0, p.flash - dt);
+    if (!p.doubleReady && (p.doubleT += dt) >= S.doubleEvery) { p.doubleT = 0; p.doubleReady = true; floater(p.x, p.y - 52, 'Doubled! Next charged hit x2', '#e8b04b', 17); }
+    timedEffectsTick();
 
     updateWaves(dt);
     if (S.bossActive) {
@@ -599,6 +648,7 @@ const Battle = (() => {
     }
     b.flash = Math.max(0, b.flash - dt);
     mechanicsTick(dt);
+    dotTick(dt);
 
     // attacks
     if (b.tele) {
@@ -687,7 +737,7 @@ const Battle = (() => {
     for (const m of S.minions) {
       const a = Math.atan2(p.y - m.y, p.x - m.x);
       m.x += Math.cos(a) * m.speed * dt; m.y += Math.sin(a) * m.speed * dt; m.life -= dt;
-      if (Math.hypot(m.x - p.x, m.y - p.y) < m.r + p.r) { hurtPlayer(8, m); m.hp = 0; }
+      if (Math.hypot(m.x - p.x, m.y - p.y) < m.r + p.r) { hurtPlayer(8, m, true); m.hp = 0; }
     }
 
     // player shots
@@ -702,6 +752,7 @@ const Battle = (() => {
       if (S.bossActive && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) {
         s.life = 0;
         hurtBoss(s.dmg, s.crit);
+        if (has('damage_over_time')) S.dots.push({ left: DOT_SECONDS, perSec: (s.dmg * effSum('damage_over_time')) / 100 / DOT_SECONDS });
         if (s.charged) p.hitCount++;
       } else if (s.charged && s.life <= 0) floater(s.x, s.y, 'Missed! Charge wasted', '#8a96a3', 13);
     }
@@ -713,6 +764,34 @@ const Battle = (() => {
 
     b.sayT -= rawDt;
     if (b.sayT <= 0) document.getElementById('b-say').hidden = true;
+  }
+
+  /** damage_over_time: each hit keeps ticking for DOT_SECONDS, paid out in whole HP once a second. */
+  function dotTick(dt) {
+    if (!S.dots.length && S.dotCarry < 1) return;
+    for (const d of S.dots) { const step = Math.min(dt, d.left); S.dotCarry += d.perSec * step; d.left -= step; }
+    S.dots = S.dots.filter((d) => d.left > 0);
+    S.dotTick -= dt;
+    if (S.dotTick > 0) return;
+    S.dotTick = 1;
+    const n = Math.floor(S.dotCarry);
+    if (n > 0) { S.dotCarry -= n; hurtBoss(n, false, true, 'decay'); }
+  }
+
+  /** Timed effects (e.duration): buff_extend rolls one forward as it expires, once per item; otherwise it expires. */
+  function timedEffectsTick() {
+    for (const e of S.loadout.effects) {
+      if (!e.duration || e.expired || S.t <= e.duration) continue;
+      const name = (e.from || 'Timed effect').replace(/\s*\(\d+pc\)$/, '');
+      if (S.rolls.length) {
+        const by = S.rolls.shift();
+        e.duration += by;
+        floater(S.p.x, S.p.y - 52, `${name} rolled forward +${by}s`, '#6fa8dc', 16);
+      } else {
+        e.expired = true;
+        floater(S.p.x, S.p.y - 52, `${name} expired`, '#8a96a3', 15);
+      }
+    }
   }
 
   // ---------------------------------------------------------------- waves + mobs
@@ -763,7 +842,7 @@ const Battle = (() => {
   function mobEnv(dt) {
     return {
       p: S.p, b: S.b, bossActive: S.bossActive, W, H, dt, mobs: S.mobs,
-      hurtPlayer, floater,
+      hurtPlayer: (d, src) => hurtPlayer(d, src, true), floater,
       bullet: (x, y, ang, v, r, dmg, extra = {}) => S.bullets.push({ x, y, vx: Math.cos(ang) * v * S.speedMul, vy: Math.sin(ang) * v * S.speedMul, r, dmg, life: 5, ...extra }),
       zone: (z) => S.zones.push(z),
       healBoss: (n) => { S.b.hp = Math.min(S.b.maxHp, S.b.hp + n); },
@@ -873,6 +952,8 @@ const Battle = (() => {
       ctx.globalAlpha = 1;
     }
     if (p.shield > 0) { ctx.strokeStyle = 'rgba(61,139,253,0.9)'; ctx.lineWidth = 3; circle(p.x, p.y, 30, false); }
+    if (S.t <= S.discountT) { ctx.strokeStyle = 'rgba(47,163,107,0.95)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); circle(p.x, p.y, 36, false); ctx.setLineDash([]); label(p.x, p.y + 50, 'SALE', '#2fa36b', 12); }
+    if (p.doubleReady) label(p.x + 26, p.y - 34, 'x2', '#e8b04b', 14);
     if (p.pips > 0) { ctx.fillStyle = '#ffd23f'; for (let i = 0; i < p.pips; i++) ctx.fillRect(p.x - 13 + i * 10, p.y - 48, 7, 7); }
 
     // projectiles
@@ -953,6 +1034,8 @@ const Battle = (() => {
       ${dg?.duplicateCoins ? `<p class="drop">${Sprites.icon('coin', 22)}<span>Duplicate drop turned into <b>${dg.duplicateCoins} coins</b>.</span></p>` : ''}
       ${dg?.capped ? '<p class="muted" style="font-size:14px">You hit today\'s Dungeon coin/XP cap. Loot still drops; caps reset at midnight.</p>' : ''}
       ${r.coinsLost ? `<p class="drop" style="color:var(--tomato)">${Sprites.icon('warning', 22)}<span>Pop Quizzes cost you <b>${r.coinsLost} coins</b>.</span></p>` : ''}
+      ${r.journal?.length ? `<details class="review" open><summary>Trading journal: ${r.journal.length} to review</summary><ol>
+        ${r.journal.map((j) => `<li><b>${escapeHtml(j.q)}</b><br>Answer: ${escapeHtml(j.answer)}. <span class="muted">${escapeHtml(j.explain || '')}</span></li>`).join('')}</ol></details>` : ''}
       <div class="row-wrap" style="justify-content:center;margin-top:12px">
         <button class="btn btn-primary" id="r-again">${dg ? (won ? `Floor ${dg.floor + 1}` : 'New run') : won ? 'Fight again' : 'Try again'}</button>
         ${r.item ? '<a class="btn" href="/hideout">Open Hideout</a>' : ''}
@@ -974,7 +1057,7 @@ const Battle = (() => {
   // Read-only snapshot for automated play-tests.
   function debug() {
     if (!S) return null;
-    return { bossActive: S.bossActive, wave: S.waveNo, mobs: S.mobs.map((m) => ({ x: m.x, y: m.y, hp: m.hp, type: m.type, elite: m.elite })), boss: { x: S.b.x, y: S.b.y, hp: Math.round(S.b.hp) }, player: { x: S.p.x, y: S.p.y, hp: Math.round(S.p.hp), pips: S.p.pips, streak: S.p.streak }, bullets: S.bullets.length, over: S.over, t: S.t, W, H };
+    return { bossActive: S.bossActive, wave: S.waveNo, mobs: S.mobs.map((m) => ({ x: m.x, y: m.y, hp: m.hp, type: m.type, elite: m.elite })), boss: { x: S.b.x, y: S.b.y, hp: Math.round(S.b.hp) }, player: { x: S.p.x, y: S.p.y, hp: Math.round(S.p.hp), maxHp: S.p.maxHp, pips: S.p.pips, streak: S.p.streak, shield: S.p.shield, doubleReady: S.p.doubleReady, lastStands: S.p.lastStands }, discount: S.t <= S.discountT, dots: S.dots.length, tele: S.b.tele && S.b.tele.total, timed: S.loadout.effects.filter((e) => e.duration).map((e) => ({ type: e.type, duration: e.duration, expired: !!e.expired })), bullets: S.bullets.length, over: S.over, t: S.t, W, H };
   }
 
   return { run, stop, debug };

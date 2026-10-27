@@ -30,6 +30,29 @@ const MIN_WIN_SECONDS = 20;
 const POP_EXPECT_SECONDS = 45;
 const POP_COINS = 2;
 const POP_MAX_COINS = 6;
+const XP_BONUS_CAP = 25;
+
+/** Battle XP with the loadout's xp_bonus gear (the loadout saved at start, never the client's). */
+function withXpBonus(xp, loadout) {
+  const pct = Math.min(XP_BONUS_CAP, (loadout?.effects || []).filter((e) => e.type === 'xp_bonus').reduce((s, e) => s + (e.value || 0), 0));
+  return Math.round(xp * (1 + pct / 100));
+}
+
+/** review_queue gear: up to N distinct questions missed this fight, with the right answer and why. */
+function journalFor(b) {
+  const max = (b.loadout?.effects || []).filter((e) => e.type === 'review_queue').reduce((s, e) => s + (e.value || 0), 0);
+  if (!max) return [];
+  const seen = new Set();
+  const out = [];
+  for (const [index, a] of Object.entries(b.answered)) {
+    if (a.correct || out.length >= max) continue;
+    const q = resolveQuestion(b.questions[Number(index) % b.questions.length]);
+    if (!q || seen.has(q.q)) continue;
+    seen.add(q.q);
+    out.push({ q: q.q, answer: q.options[q.answer], explain: q.explain });
+  }
+  return out;
+}
 
 /** A boss from bosses.json, or a Dungeon floor's monster ("dungeon-<floor>"). */
 function bossFor(id) {
@@ -307,9 +330,10 @@ router.post('/:battleId/finish', async (req, res, next) => {
         dungeon = { floor: boss.floor, best: p.best_floor, newBest: false, coins: 0, xp: 0, capped: false, duplicateCoins: 0 };
         if (result === 'won' && boss.floor === p.current_floor + 1) {
           const r = floorRewards(boss.floor);
+          const rx = withXpBonus(r.xp, b.loadout);
           let c = Math.max(0, Math.min(r.coins, p.coin_cap - p.coins_today));
-          const x = Math.max(0, Math.min(r.xp, DAILY_XP_CAP - p.xp_today));
-          dungeon = { ...dungeon, coins: c, xp: x, capped: c < r.coins || x < r.xp, best: Math.max(p.best_floor, boss.floor), newBest: boss.floor > p.best_floor };
+          const x = Math.max(0, Math.min(rx, DAILY_XP_CAP - p.xp_today));
+          dungeon = { ...dungeon, coins: c, xp: x, capped: c < r.coins || x < rx, best: Math.max(p.best_floor, boss.floor), newBest: boss.floor > p.best_floor };
           // Loot: odds from content/game/dungeon-loot.json; duplicates become coins.
           const drop = rollLoot(boss.floor, boss.floor % 5 === 0);
           if (drop) {
@@ -354,7 +378,7 @@ router.post('/:battleId/finish', async (req, res, next) => {
             );
             if (ins.rows.length) item = ITEMS.get(boss.rewards.item);
           }
-          await awardXp(db, userId, 'boss', boss.id, boss.rewards?.xp || 0, coins);
+          await awardXp(db, userId, 'boss', boss.id, withXpBonus(boss.rewards?.xp || 0, b.loadout), coins);
         } else if (prior.rows[0].paid_today === 0) {
           // Repeat wins pay a little, once per day across all bosses: farming isn't a strategy.
           coins = boss.rewards?.repeatCoins || 0;
@@ -383,7 +407,7 @@ router.post('/:battleId/finish', async (req, res, next) => {
       return {
         result, firstWin, coins: after.coins - before.coins + coinsLost, xp: after.xp - before.xp, item: item ? { id: item.id, name: item.name, rarity: item.rarity } : null,
         correct: b.correct, wrong: b.wrong, seconds: Math.round(seconds), damageTaken, streak,
-        dungeon, coinsLost, popWrong: b.pop_wrong, popMissed,
+        dungeon, coinsLost, popWrong: b.pop_wrong, popMissed, journal: journalFor(b),
         newAchievements: newAchievements.map(({ id, name, desc, sprite }) => ({ id, name, desc, sprite })),
         level: levelFor(after.xp), leveledUp: levelFor(after.xp).level > levelFor(before.xp).level,
       };

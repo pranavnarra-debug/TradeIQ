@@ -64,6 +64,8 @@ async function playSession(rival) {
   // Rivals never trade: that would spend real market-data quota on bots.
   const brain = new Brain({ persona: rival.persona, api, shared, allowTrade: false });
   brain.styled = true;
+  // Playing counts as being active, like a person logging in.
+  await query('UPDATE users SET last_login = NOW() WHERE id = $1', [rival.user_id]);
   await brain.loadProgress();
   await brain.play();
 }
@@ -116,6 +118,11 @@ export async function seedRivals() {
   const taken = new Set((await query('SELECT LOWER(username) AS u FROM users')).rows.map((r) => r.u));
   let added = 0;
   for (const p of players) {
+    // Spread signups over about a month: shift this rival's whole history back 0-21 days.
+    const shift = crypto.randomInt(22) * 86400;
+    for (const k of ['created_at', 'last_login']) if (p.user[k] != null) p.user[k] += shift;
+    if (p.user.streak_last_day != null) p.user.streak_last_day += shift / 86400;
+    for (const rows of Object.values(p.rows)) for (const r of rows) for (const c of Object.keys(r)) if (TIME.test(c) && r[c] != null) r[c] += shift;
     let name = p.user.username;
     while (taken.has(name.toLowerCase())) name = `${name.slice(0, 16)}${Math.floor(Math.random() * 1000)}`;
     taken.add(name.toLowerCase());

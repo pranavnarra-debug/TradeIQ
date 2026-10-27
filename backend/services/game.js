@@ -138,6 +138,14 @@ export function computeStats(equippedIds) {
     }
     sets.push({ id: setId, name: set.name, count, bonuses });
   }
+  // mix_bonus: +value to every stat when all 4 armor slots are filled from at least 3 different sets.
+  const mix = effects.filter((e) => e.type === 'mix_bonus').reduce((n, e) => n + (e.value || 0), 0);
+  if (mix) {
+    const armor = equippedIds.map((id) => ITEMS.get(id)).filter((it) => it && ARMOR_SLOTS.includes(it.slot));
+    if (armor.length === ARMOR_SLOTS.length && new Set(armor.map((it) => it.set).filter(Boolean)).size >= 3) {
+      for (const k of STAT_KEYS) stats[k] += mix;
+    }
+  }
   return { stats, sets, effects };
 }
 
