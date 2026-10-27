@@ -328,7 +328,7 @@ test('dungeon: open from day one, pop quizzes cost coins, losing ends the run', 
   assert.equal(q.pop, true);
   let r = await call('POST', `/api/battles/${id}/answer`, { index: 0, choice: -1 });
   assert.equal(r.data.pop, true);
-  assert.equal(r.data.coinsAtRisk, 5);
+  assert.equal(r.data.coinsAtRisk, 2);
   const answers = [r.data.answer];
   for (let i = 1; i < start.questionCount; i++) {
     r = await call('POST', `/api/battles/${id}/answer`, { index: i, choice: -1 });
@@ -343,8 +343,8 @@ test('dungeon: open from day one, pop quizzes cost coins, losing ends the run', 
   await new Promise((ok) => setTimeout(ok, Math.max(0, 21000 - (Date.now() - begun))));
   const win = (await call('POST', `/api/battles/${id}/finish`, { result: 'won', damageTaken: 5 })).data;
   assert.equal(win.dungeon.floor, 1);
-  // One wrong pop quiz = 5 coins, but never more than the player has (a new player has only floor 1's reward).
-  assert.equal(win.coinsLost, Math.min(5, coinsBefore + win.coins));
+  // One wrong pop quiz = 2 coins, but never more than the player has (a new player has only floor 1's reward).
+  assert.equal(win.coinsLost, Math.min(2, coinsBefore + win.coins));
   assert.ok(win.dungeon.coins > 0 && win.xp > 0);
   const coinsAfter = (await call('GET', '/api/game/state')).data.coins;
   assert.equal(coinsAfter - coinsBefore, win.coins - win.coinsLost);

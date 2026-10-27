@@ -11,7 +11,10 @@ import { ITEMS } from './game.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BOSSES_PATH = path.join(__dirname, '..', 'content', 'game', 'bosses.json');
 
-const PATTERNS = ['ring', 'volley', 'aimed', 'rain', 'charge', 'homing', 'wall', 'slam'];
+const PATTERNS = ['ring', 'volley', 'aimed', 'rain', 'charge', 'homing', 'wall', 'slam',
+  // signature attacks (one per boss/monster): see executeAttack in frontend/js/game/battle.js
+  'balloon', 'pyramid', 'shuffle', 'sine', 'spiral', 'bounce', 'tantrum', 'lava', 'beam', 'decay', 'dive', 'blackout'];
+const MOB_TYPES = ['zombie', 'swarmer', 'shooter', 'bomber', 'tank', 'splitter', 'healer', 'turret'];
 const MECHANICS = ['regen', 'enrage_below', 'shield_phase', 'mood_swing', 'countdown', 'settlement', 'summon', 'mirror', 'none'];
 const UNIT_IDS = ['money', 'stocks', 'options', 'futures'];
 
@@ -30,6 +33,10 @@ function validate(list) {
     if (!Array.isArray(b.attacks) || !b.attacks.length) errors.push(`${w}: attacks`);
     for (const a of b.attacks || []) if (!PATTERNS.includes(a.pattern)) errors.push(`${w}: pattern ${a.pattern}`);
     if (b.rewards?.item && !ITEMS.has(b.rewards.item)) errors.push(`${w}: reward item ${b.rewards.item} not in catalog`);
+    for (const wave of b.waves || []) {
+      if (wave.at !== 'start' && !(wave.at > 0 && wave.at < 1)) errors.push(`${w}: wave at ${wave.at}`);
+      for (const g of wave.mobs || []) if (!MOB_TYPES.includes(g.type)) errors.push(`${w}: mob type ${g.type}`);
+    }
   }
   return errors;
 }

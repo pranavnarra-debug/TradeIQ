@@ -12,12 +12,18 @@ const Battle = (() => {
   const W = 960;
   const H = 600;
   const INK = '#17140f';
-  const POP_COINS = 5; // matches POP_COINS in backend/routes/battles.js
+  const POP_COINS = 2; // matches POP_COINS in backend/routes/battles.js
   const POP_EVERY = 30; // seconds of play between Pop Quizzes (40 in Assist mode)
   let S = null; // current fight state
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  /** Distance from point (px, py) to the segment (x1, y1)-(x2, y2). */
+  function segDist(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1; const dy = y2 - y1; const L = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / L));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
   const eff = (type) => (S.loadout.effects || []).filter((e) => e.type === type);
   const effSum = (type) => eff(type).reduce((n, e) => n + (Number(e.value) || 0), 0);
   const has = (type) => eff(type).length > 0;
@@ -70,15 +76,22 @@ const Battle = (() => {
     const canvas = document.getElementById('b-canvas');
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    const [playerImg, bossImg] = await Promise.all([
+    const waves = (boss.waves || []).map((w) => ({ ...w, spawned: false }));
+    const mobKinds = new Set(['swarmer:0']);
+    for (const w of waves) for (const g of w.mobs || []) mobKinds.add(`${g.type}:${g.elite ? 1 : 0}`);
+    const [playerImg, bossImg, ...mobImgs] = await Promise.all([
       svgImage(Avatar.render(appearance, gear, { size: 64 })),
       svgImage(BossArt.svg(boss, 88)),
+      ...[...mobKinds].map((k) => { const [t, e] = k.split(':'); return svgImage(BossArt.svg(Mobs.lookFor(t, e === '1'), 64)); }),
     ]);
+    const mobImg = Object.fromEntries([...mobKinds].map((k, i) => [k, mobImgs[i]]));
 
     const loadout = battle.loadout;
     const speedMul = (boss.speed || 1) * (assist ? 0.7 : 1);
     S = {
-      boss, battleId: battle.battleId, loadout, assist, ctx, canvas, playerImg, bossImg,
+      boss, battleId: battle.battleId, loadout, assist, ctx, canvas, playerImg, bossImg, mobImg,
+      // Waves: "start" waves come before the boss enters; numeric ones (0-1) arrive at that boss HP fraction.
+      waves, mobs: [], drops: [], bursts: [], emitters: [], dark: 0, bossActive: !waves.some((w) => w.at === 'start'), waveNo: 0,
       t: 0, last: performance.now(), raf: 0, over: false, paused: false, timeScale: 1,
       p: {
         x: 200, y: H / 2, r: 18, vx: 0, vy: 0, face: 0,
@@ -95,7 +108,8 @@ const Battle = (() => {
       keys: new Set(), mouse: { x: W / 2, y: H / 2 }, joy: { x: 0, y: 0, active: false },
       q: null, qCd: 0, qChain: 0, popT: 0, popDue: false, sinceQ: 0, telegraphMul: assist ? 1.6 : 1, speedMul,
     };
-    say(boss.intro, 3500);
+    if (S.bossActive) say(boss.intro, 3500);
+    else { S.b.x = W - 90; S.b.y = 70; say(`Clear the waves and I'll come down myself.`, 3000); }
     bindInput();
     updateHud();
     S.raf = requestAnimationFrame(frame);
@@ -233,7 +247,7 @@ const Battle = (() => {
         if (Math.random() < chance) { crit = true; mult *= 2 + effSum('crit_damage') / 100; }
       }
       const dmg = Math.round(p.pips * (30 + 3 * power) * mult);
-      S.shots.push({ x: p.x, y: p.y, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 7 + p.pips * 2, dmg, crit, charged: true, life: 1.6 });
+      S.shots.push({ x: p.x, y: p.y, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 7 + p.pips * 2, dmg, crit, charged: true, pips: p.pips, life: 1.6 });
       p.pips = 0;
       S.qChain = 0;
       p.firstStrikeUsed = true;
@@ -248,7 +262,7 @@ const Battle = (() => {
   // ---------------------------------------------------------------- questions (Focus Time)
   async function openQuestion(pop = false) {
     if (S.paused || S.over || S.q) return;
-    if (!pop && S.qCd > 0) { floater(S.p.x, S.p.y - 40, `Charge ready in ${Math.ceil(S.qCd)}s`, '#8a96a3', 13); return; }
+    if (!pop && S.qCd > 0) { if (S.t - (S.cdNoteT || -9) > 0.8) { S.cdNoteT = S.t; floater(S.p.x, S.p.y - 40, `Charge ready in ${Math.ceil(S.qCd)}s`, '#8a96a3', 13); } return; }
     if (!pop && S.p.pips >= 3) { floater(S.p.x, S.p.y - 40, 'Fully charged! Fire!', '#ffd23f'); return; }
     S.q = { loading: true, pop };
     S.timeScale = 0.2;
@@ -367,7 +381,9 @@ const Battle = (() => {
     S.b.buffNext = 1;
     dmg *= 1 - Math.min(0.6, 0.03 * (S.loadout.stats.defense || 0));
     dmg *= 1 - clamp(effSum('damage_reduction'), 0, 50) / 100;
-    if (has('damage_cap')) dmg = Math.min(dmg, Math.max(...eff('damage_cap').map((e) => e.value)));
+    // damage_cap: value is % of max HP; the strongest (lowest) active cap wins. Some caps only last `duration` seconds.
+    const caps = eff('damage_cap').filter((e) => !e.duration || S.t <= e.duration);
+    if (caps.length) dmg = Math.min(dmg, (S.p.maxHp * Math.min(...caps.map((e) => e.value))) / 100);
     dmg = Math.max(1, Math.round(dmg));
     if (p.shield > 0) { const absorbed = Math.min(p.shield, dmg); p.shield -= absorbed; dmg -= absorbed; }
     if (dmg > 0) {
@@ -479,6 +495,23 @@ const Battle = (() => {
         break;
       }
       case 'slam': S.zones.push({ x: b.x, y: b.y, r: 150, t: 0, dmg, fade: 0.3, knock: true }); break;
+      // ---- signature attacks
+      case 'balloon': { const n = a.count || 3; for (let k = 0; k < n; k++) bullet(toP + (k - (n - 1) / 2) * 0.5, speed(90), 8, { grow: 12, maxR: 26, popAt: 1.7, popN: 10, life: 3 }); break; }
+      case 'pyramid': bullet(toP, speed(150), 14, { splitEvery: 0.55, splits: a.count || 3, life: 4 }); break;
+      case 'shuffle': { const n = a.count || 7; for (let k = 0; k < n; k++) bullet(toP + (k - (n - 1) / 2) * 0.32, speed(260), 8, { holdAt: 0.55, retV: speed(330), life: 4 }); break; }
+      case 'sine': S.emitters.push({ t: 0, every: 0.12, left: a.count || 14, n: 0, fn: () => bullet(Math.atan2(S.p.y - S.b.y, S.p.x - S.b.x), speed(220), 7, { sine: 46, freq: 7 }) }); break;
+      case 'spiral': S.emitters.push({ t: 0, every: 0.07, left: a.count || 26, n: 0, fn: (i) => { for (let arm = 0; arm < 3; arm++) bullet(i * 0.33 + (arm * Math.PI * 2) / 3, speed(190), 7); } }); break;
+      case 'bounce': { const n = a.count || 5; for (let k = 0; k < n; k++) bullet(toP + (Math.random() - 0.5) * 1.6, speed(250), 8, { bounces: 2, life: 6 }); break; }
+      case 'tantrum': { const n = a.count || 4; for (let k = 1; k <= n; k++) { const f = k / n; S.zones.push({ x: b.x + (tx - b.x) * f, y: b.y + (ty - b.y) * f, r: 70, t: 0, dmg, fade: 0.35 + k * 0.22, knock: true }); } break; }
+      case 'lava': { const n = a.count || 3; for (let k = 0; k < n; k++) S.zones.push({ x: clamp(tx + (Math.random() - 0.5) * 220, 50, W - 50), y: clamp(ty + (Math.random() - 0.5) * 180, 50, H - 50), r: 52, t: 0, dmg: Math.max(4, Math.round(dmg / 2)), fade: 0.6, dur: 6, kind: 'lava' }); break; }
+      case 'beam': S.zones.push({ kind: 'beam', x: b.x, y: b.y, x2: b.x + Math.cos(toP) * 1400, y2: b.y + Math.sin(toP) * 1400, w: 34, t: 0, dmg, fade: 0.05 }); break;
+      case 'decay': S.zones.push({ kind: 'safe', x: W / 2, y: H / 2, r0: 430, r1: 170, r: 430, dur: 5, t: 0, dmg: Math.max(4, Math.round(dmg / 2)), fade: 0.5 }); break;
+      case 'dive': {
+        b.dashT = 0.75; b.dvx = Math.cos(toP) * speed(700); b.dvy = Math.sin(toP) * speed(700); b.dashDmg = dmg;
+        S.emitters.push({ t: 0, every: 0.07, left: 10, n: 0, fn: () => { const a2 = Math.random() * Math.PI * 2; S.bullets.push({ x: S.b.x, y: S.b.y, vx: Math.cos(a2) * 40, vy: Math.sin(a2) * 40, r: 6, dmg: Math.round(dmg / 2), life: 3 }); } });
+        break;
+      }
+      case 'blackout': S.dark = 4.5; S.emitters.push({ t: 0.6, every: 0.55, left: 7, n: 0, fn: () => bullet(Math.atan2(S.p.y - S.b.y, S.p.x - S.b.x), speed(200), 8) }); break;
       default: bullet(toP, speed(240));
     }
   }
@@ -537,6 +570,8 @@ const Battle = (() => {
     p.fireCd = Math.max(0, p.fireCd - dt);
     p.flash = Math.max(0, p.flash - dt);
 
+    updateWaves(dt);
+    if (S.bossActive) {
     // boss movement: keep a fighting distance, strafe, sidestep charged shots
     b.stun = Math.max(0, (b.stun || 0) - dt);
     const stunned = b.stun > 0;
@@ -574,9 +609,49 @@ const Battle = (() => {
       const ready = b.cds.findIndex((c) => c <= 0);
       if (ready >= 0) startAttack(ready);
     }
+    } // bossActive
+
+    // mobs
+    const E = mobEnv(dt);
+    for (const m of S.mobs) Mobs.update(m, E);
+    for (const m of S.mobs) if (m.hp <= 0 && !m.dead) { m.dead = true; Mobs.onDeath(m, E); }
+    S.mobs = S.mobs.filter((m) => m.hp > 0);
+    for (const d of S.drops) { d.t -= dt; if (Math.hypot(d.x - p.x, d.y - p.y) < 26) { heal(d.heal); floater(d.x, d.y - 20, `+${d.heal} HP`, '#1fbf75'); d.t = 0; } }
+    S.drops = S.drops.filter((d) => d.t > 0);
+    for (const bu of S.bursts) bu.t -= dt;
+    S.bursts = S.bursts.filter((bu) => bu.t > 0);
+    for (const em of S.emitters) { em.t -= dt; while (em.t <= 0 && em.left > 0) { em.fn(em.n++); em.left--; em.t += em.every; } }
+    S.emitters = S.emitters.filter((em) => em.left > 0 && !S.over);
+    S.dark = Math.max(0, S.dark - dt);
 
     // boss bullets
+    const spawned = [];
     for (const s of S.bullets) {
+      s.age = (s.age || 0) + dt;
+      if (s.grow) { // balloon: swells, then pops into a ring
+        s.r = Math.min(s.maxR, s.r + s.grow * dt);
+        if (s.age >= s.popAt) { s.life = 0; for (let k = 0; k < s.popN; k++) spawned.push({ x: s.x, y: s.y, vx: Math.cos((k / s.popN) * Math.PI * 2) * 150, vy: Math.sin((k / s.popN) * Math.PI * 2) * 150, r: 7, dmg: s.dmg, life: 4 }); continue; }
+      }
+      if (s.splitEvery && s.age >= s.splitEvery) { // pyramid: every bullet becomes two
+        s.life = 0;
+        if (s.splits > 0) { const a0 = Math.atan2(s.vy, s.vx); const v = Math.hypot(s.vx, s.vy); for (const d of [-0.45, 0.45]) spawned.push({ x: s.x, y: s.y, vx: Math.cos(a0 + d) * v, vy: Math.sin(a0 + d) * v, r: Math.max(6, s.r - 2), dmg: s.dmg, life: 4, splitEvery: s.splitEvery, splits: s.splits - 1 }); }
+        continue;
+      }
+      if (s.holdAt != null) { // shuffle: freeze mid-air, then re-aim at you
+        if (s.age >= s.holdAt && !s.held) { s.held = true; s.vx = 0; s.vy = 0; }
+        if (s.held && s.age >= s.holdAt + 0.45 && !s.retargeted) { s.retargeted = true; const a1 = Math.atan2(p.y - s.y, p.x - s.x); s.vx = Math.cos(a1) * s.retV; s.vy = Math.sin(a1) * s.retV; }
+      }
+      if (s.sine) { // wave stream: weaves side to side along its path
+        s.bx = (s.bx ?? s.x) + s.vx * dt; s.by = (s.by ?? s.y) + s.vy * dt;
+        const v = Math.hypot(s.vx, s.vy) || 1; const off = Math.sin(s.age * s.freq) * s.sine;
+        s.x = s.bx - (s.vy / v) * off; s.y = s.by + (s.vx / v) * off; s.life -= dt;
+        if (Math.hypot(s.x - p.x, s.y - p.y) < s.r + p.r - 4) { hurtPlayer(s.dmg, s); s.life = 0; }
+        continue;
+      }
+      if (s.bounces > 0) {
+        if ((s.x < 12 && s.vx < 0) || (s.x > W - 12 && s.vx > 0)) { s.vx = -s.vx; s.bounces--; }
+        if ((s.y < 12 && s.vy < 0) || (s.y > H - 12 && s.vy > 0)) { s.vy = -s.vy; s.bounces--; }
+      }
       if (s.homing) {
         const want = Math.atan2(p.y - s.y, p.x - s.x);
         const cur = Math.atan2(s.vy, s.vx);
@@ -588,14 +663,25 @@ const Battle = (() => {
       s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
       if (Math.hypot(s.x - p.x, s.y - p.y) < s.r + p.r - 4) { hurtPlayer(s.dmg, s); s.life = 0; }
     }
-    S.bullets = S.bullets.filter((s) => s.life > 0 && s.x > -30 && s.x < W + 30 && s.y > -30 && s.y < H + 30);
+    S.bullets = S.bullets.filter((s) => s.life > 0 && s.x > -30 && s.x < W + 30 && s.y > -30 && s.y < H + 30).concat(spawned);
 
     // zones (rain/slam): telegraphed circles that hit once
     for (const z of S.zones) {
       z.t += dt;
-      if (!z.hit && z.t >= z.fade) { z.hit = true; if (Math.hypot(z.x - p.x, z.y - p.y) < z.r + p.r * 0.5) hurtPlayer(z.dmg, z); }
+      if (z.kind === 'beam') {
+        if (!z.hit && z.t >= z.fade) { z.hit = true; if (segDist(p.x, p.y, z.x, z.y, z.x2, z.y2) < z.w / 2 + p.r * 0.5) hurtPlayer(z.dmg, z); }
+      } else if (z.kind === 'safe') {
+        // a shrinking safe circle: outside it hurts
+        z.r = z.r0 + (z.r1 - z.r0) * Math.min(1, z.t / z.dur);
+        z.tick = (z.tick || 0) - dt;
+        if (z.t > z.fade && z.tick <= 0 && Math.hypot(z.x - p.x, z.y - p.y) > z.r) { z.tick = 0.6; hurtPlayer(z.dmg, null); }
+      } else if (z.dur) {
+        // lingering pool: hurts while you stand in it
+        z.tick = (z.tick || 0) - dt;
+        if (z.t > z.fade && z.tick <= 0 && Math.hypot(z.x - p.x, z.y - p.y) < z.r + p.r * 0.3) { z.tick = 0.6; hurtPlayer(z.dmg, null); }
+      } else if (!z.hit && z.t >= z.fade) { z.hit = true; if (Math.hypot(z.x - p.x, z.y - p.y) < z.r + p.r * 0.5) hurtPlayer(z.dmg, z); }
     }
-    S.zones = S.zones.filter((z) => z.t < z.fade + 0.35);
+    S.zones = S.zones.filter((z) => z.t < z.fade + (z.dur || 0.35));
 
     // minions
     for (const m of S.minions) {
@@ -607,11 +693,13 @@ const Battle = (() => {
     // player shots
     for (const s of S.shots) {
       s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+      const mob = S.mobs.find((m) => m.hp > 0 && Math.hypot(m.x - s.x, m.y - s.y) < m.r + s.r);
+      if (mob && Mobs.hit(mob, s, mobEnv(0))) { s.life = 0; continue; }
       const hitMinion = S.minions.find((m) => m.hp > 0 && Math.hypot(m.x - s.x, m.y - s.y) < m.r + s.r);
       if (hitMinion) { hitMinion.hp -= s.charged ? 999 : 1; s.life = 0; continue; }
       const decoy = (S.decoys || []).find((d) => Math.hypot(d.x - s.x, d.y - s.y) < b.r + s.r);
       if (decoy) { s.life = 0; floater(decoy.x, decoy.y - 50, 'Decoy!', '#8a96a3'); if (s.charged) floater(s.x, s.y, 'Charge wasted', '#8a96a3', 13); continue; }
-      if (Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) {
+      if (S.bossActive && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) {
         s.life = 0;
         hurtBoss(s.dmg, s.crit);
         if (s.charged) p.hitCount++;
@@ -625,6 +713,64 @@ const Battle = (() => {
 
     b.sayT -= rawDt;
     if (b.sayT <= 0) document.getElementById('b-say').hidden = true;
+  }
+
+  // ---------------------------------------------------------------- waves + mobs
+  function edgeSpot() {
+    for (let i = 0; i < 12; i++) {
+      const side = Math.floor(Math.random() * 4);
+      const x = side === 0 ? 40 : side === 1 ? W - 40 : 40 + Math.random() * (W - 80);
+      const y = side === 2 ? 40 : side === 3 ? H - 40 : 40 + Math.random() * (H - 80);
+      if (Math.hypot(x - S.p.x, y - S.p.y) > 240) return { x, y };
+    }
+    return { x: W - 60, y: 60 };
+  }
+
+  function spawnWave(w) {
+    w.spawned = true;
+    S.waveNo++;
+    const total = S.waves.length;
+    floater(W / 2, 70, w.label || `Wave ${S.waveNo}/${total}`, w.mobs?.some((g) => g.elite) ? '#ffd23f' : '#ff7a45', 24);
+    for (const g of w.mobs || []) {
+      for (let k = 0; k < (g.count || 1); k++) {
+        const at = g.type === 'turret' ? { x: 160 + Math.random() * (W - 320), y: 100 + Math.random() * (H - 200) } : edgeSpot();
+        S.mobs.push(Mobs.create(g.type, at.x, at.y, !!g.elite));
+      }
+    }
+  }
+
+  function updateWaves() {
+    const pre = S.waves.filter((w) => w.at === 'start');
+    if (!S.bossActive) {
+      if (S.mobs.length) return;
+      const next = pre.find((w) => !w.spawned);
+      if (next) { spawnWave(next); return; }
+      // every opening wave cleared: the boss enters
+      S.bossActive = true;
+      S.b.x = W - 220; S.b.y = H / 2;
+      floater(S.b.x, S.b.y - 70, `${S.boss.name}!`, '#ff5a4e', 24);
+      say(S.boss.intro, 3200);
+      return;
+    }
+    for (const w of S.waves) {
+      if (!w.spawned && typeof w.at === 'number' && S.b.hp / S.b.maxHp <= w.at) {
+        spawnWave(w);
+        say(w.say || 'Get them!', 1600);
+      }
+    }
+  }
+
+  function mobEnv(dt) {
+    return {
+      p: S.p, b: S.b, bossActive: S.bossActive, W, H, dt, mobs: S.mobs,
+      hurtPlayer, floater,
+      bullet: (x, y, ang, v, r, dmg, extra = {}) => S.bullets.push({ x, y, vx: Math.cos(ang) * v * S.speedMul, vy: Math.sin(ang) * v * S.speedMul, r, dmg, life: 5, ...extra }),
+      zone: (z) => S.zones.push(z),
+      healBoss: (n) => { S.b.hp = Math.min(S.b.maxHp, S.b.hp + n); },
+      spawn: (type, x, y, elite, ready) => { const m = Mobs.create(type, x, y, elite); if (ready) { m.state = 'go'; } S.mobs.push(m); },
+      drop: (d) => S.drops.push(d),
+      burst: (x, y, r) => S.bursts.push({ x, y, r, t: 0.3 }),
+    };
   }
 
   function floater(x, y, text, color, size = 15) {
@@ -660,12 +806,27 @@ const Battle = (() => {
       const pat = b.tele.a.pattern;
       if (pat === 'slam') { circle(b.x, b.y, 150, true); }
       else if (pat === 'rain') { for (const s of b.tele.spots) circle(s.x, s.y, 44, true); }
-      else if (pat === 'charge') { ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.tele.tx, b.tele.ty); ctx.stroke(); ctx.setLineDash([]); }
+      else if (pat === 'charge' || pat === 'dive') { ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.tele.tx, b.tele.ty); ctx.stroke(); ctx.setLineDash([]); }
+      else if (pat === 'beam') { const a3 = Math.atan2(b.tele.ty - b.y, b.tele.tx - b.x); ctx.lineWidth = 2 + 30 * k; ctx.strokeStyle = `rgba(255,90,78,${0.2 + 0.5 * k})`; ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + Math.cos(a3) * 1400, b.y + Math.sin(a3) * 1400); ctx.stroke(); }
+      else if (pat === 'tantrum') { const n = b.tele.a.count || 4; for (let i = 1; i <= n; i++) circle(b.x + (b.tele.tx - b.x) * (i / n), b.y + (b.tele.ty - b.y) * (i / n), 70, true); }
+      else if (pat === 'decay') { ctx.setLineDash([10, 8]); circle(W / 2, H / 2, 170, false); ctx.setLineDash([]); }
       else { circle(b.x, b.y, b.r + 10 + 12 * k, false); }
       label(b.x, b.y - b.r - 30, b.tele.a.name || pat, '#ffd23f', 14);
     }
     for (const z of S.zones) {
       const k = Math.min(1, z.t / z.fade);
+      if (z.kind === 'beam') {
+        ctx.strokeStyle = `rgba(255,${z.hit ? 240 : 90},${z.hit ? 200 : 78},${z.hit ? 0.9 : 0.5})`; ctx.lineWidth = z.w;
+        ctx.beginPath(); ctx.moveTo(z.x, z.y); ctx.lineTo(z.x2, z.y2); ctx.stroke();
+        continue;
+      }
+      if (z.kind === 'safe') {
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2, true);
+        ctx.fillStyle = 'rgba(139,92,246,0.28)'; ctx.fill('evenodd'); ctx.restore();
+        ctx.strokeStyle = 'rgba(139,92,246,0.95)'; ctx.lineWidth = 4; circle(z.x, z.y, z.r, false);
+        continue;
+      }
+      if (z.kind === 'lava') { ctx.fillStyle = `rgba(255,122,69,${z.t < z.fade ? 0.25 : 0.55})`; ctx.strokeStyle = 'rgba(255,90,78,0.9)'; ctx.lineWidth = 3; circle(z.x, z.y, z.r, true); continue; }
       ctx.fillStyle = z.hit ? 'rgba(255,90,78,0.55)' : `rgba(255,90,78,${0.15 + 0.3 * k})`;
       ctx.strokeStyle = 'rgba(255,90,78,0.9)'; ctx.lineWidth = 3;
       circle(z.x, z.y, z.r, true);
@@ -678,6 +839,12 @@ const Battle = (() => {
       ctx.lineTo(p.x + Math.cos(p.face) * 120, p.y + Math.sin(p.face) * 120); ctx.stroke(); ctx.setLineDash([]);
     }
 
+    // pickups, mobs, bursts
+    for (const d of S.drops) { ctx.globalAlpha = d.t < 2 ? (Math.floor(d.t * 6) % 2 ? 0.4 : 1) : 1; ctx.fillStyle = INK; sq(d.x, d.y, 9); ctx.fillStyle = '#ff5a8a'; sq(d.x, d.y, 7); ctx.globalAlpha = 1; }
+    for (const m of S.mobs) Mobs.draw(ctx, m, S.mobImg[`${m.type}:${m.elite ? 1 : 0}`] || S.mobImg['swarmer:0']);
+    for (const bu of S.bursts) { ctx.fillStyle = `rgba(255,210,63,${bu.t * 1.6})`; circle(bu.x, bu.y, bu.r * (1.2 - bu.t), true, false); }
+    for (const m of S.mobs) if (m.type === 'healer' && m.beam && S.bossActive) { ctx.strokeStyle = 'rgba(31,191,117,0.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+
     // minions
     for (const m of S.minions) { ctx.fillStyle = INK; circle(m.x, m.y, m.r + 2, true, false); ctx.fillStyle = b.flash ? '#fff' : (S.boss.look?.accent || '#ffd23f'); circle(m.x, m.y, m.r, true, false); }
 
@@ -685,7 +852,8 @@ const Battle = (() => {
     const bw = 104;
     for (const d of S.decoys || []) { ctx.globalAlpha = 0.85; ctx.drawImage(S.bossImg, d.x - bw / 2, d.y - bw / 2, bw, bw); ctx.globalAlpha = 1; }
     if ((S.decoys || []).length) { ctx.fillStyle = 'rgba(255,210,63,0.55)'; ellipse(b.x, b.y + bw / 2 - 6, 46, 12); }
-    ctx.globalAlpha = b.flash > 0 ? 0.55 : 1;
+    ctx.globalAlpha = !S.bossActive ? 0.35 : b.flash > 0 ? 0.55 : 1;
+    if (!S.bossActive) label(b.x, b.y + bw / 2, 'waiting', '#8a96a3', 12);
     ctx.fillStyle = 'rgba(0,0,0,0.25)'; ellipse(b.x, b.y + bw / 2 - 6, 40, 10);
     ctx.drawImage(S.bossImg, b.x - bw / 2, b.y - bw / 2, bw, bw);
     ctx.globalAlpha = 1;
@@ -708,8 +876,15 @@ const Battle = (() => {
     if (p.pips > 0) { ctx.fillStyle = '#ffd23f'; for (let i = 0; i < p.pips; i++) ctx.fillRect(p.x - 13 + i * 10, p.y - 48, 7, 7); }
 
     // projectiles
-    for (const s of S.bullets) { ctx.fillStyle = INK; sq(s.x, s.y, s.r + 2); ctx.fillStyle = s.homing ? '#8b5cf6' : '#ff5a4e'; sq(s.x, s.y, s.r); }
+    for (const s of S.bullets) { ctx.fillStyle = INK; sq(s.x, s.y, s.r + 2); ctx.fillStyle = s.homing ? '#8b5cf6' : s.grow ? '#ff7ab8' : s.splitEvery ? '#ffd23f' : s.holdAt != null ? '#fffaf0' : s.sine ? '#3d8bfd' : '#ff5a4e'; sq(s.x, s.y, s.r); }
     for (const s of S.shots) { ctx.fillStyle = INK; sq(s.x, s.y, s.r + 2); ctx.fillStyle = s.charged ? '#ffd23f' : '#fffaf0'; sq(s.x, s.y, s.r); }
+
+    // Blackout: only a pool of light around you
+    if (S.dark > 0) {
+      const g = ctx.createRadialGradient(p.x, p.y, 60, p.x, p.y, 190);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${Math.min(0.94, S.dark * 2)})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
 
     for (const f of S.floaters) { ctx.globalAlpha = Math.min(1, f.t * 2); label(f.x, f.y, f.text, f.color, f.size); ctx.globalAlpha = 1; }
 
@@ -799,7 +974,7 @@ const Battle = (() => {
   // Read-only snapshot for automated play-tests.
   function debug() {
     if (!S) return null;
-    return { boss: { x: S.b.x, y: S.b.y, hp: Math.round(S.b.hp) }, player: { x: S.p.x, y: S.p.y, hp: Math.round(S.p.hp), pips: S.p.pips, streak: S.p.streak }, bullets: S.bullets.length, over: S.over, t: S.t, W, H };
+    return { bossActive: S.bossActive, wave: S.waveNo, mobs: S.mobs.map((m) => ({ x: m.x, y: m.y, hp: m.hp, type: m.type, elite: m.elite })), boss: { x: S.b.x, y: S.b.y, hp: Math.round(S.b.hp) }, player: { x: S.p.x, y: S.p.y, hp: Math.round(S.p.hp), pips: S.p.pips, streak: S.p.streak }, bullets: S.bullets.length, over: S.over, t: S.t, W, H };
   }
 
   return { run, stop, debug };

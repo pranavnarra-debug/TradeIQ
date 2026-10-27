@@ -17,7 +17,7 @@ import { awardXp, touchStreak, checkAchievements, levelFor } from '../services/p
 import { logActivity } from '../services/activity.js';
 import { ensureStarterKit } from './game.js';
 import { isAdmin } from '../services/adminAccess.js';
-import { monsterFor, dungeonLessons, floorRewards, DAILY_COIN_CAP, DAILY_XP_CAP } from '../services/dungeon.js';
+import { monsterFor, dungeonLessons, floorRewards, coinCapFor, DAILY_XP_CAP } from '../services/dungeon.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -28,8 +28,8 @@ const MIN_WIN_SECONDS = 20;
 // at least one per POP_EXPECT_SECONDS of wall time (looser, to allow for
 // pauses and slow connections). Each wrong or skipped one costs coins.
 const POP_EXPECT_SECONDS = 45;
-const POP_COINS = 5;
-const POP_MAX_COINS = 25;
+const POP_COINS = 2;
+const POP_MAX_COINS = 6;
 
 /** A boss from bosses.json, or a Dungeon floor's monster ("dungeon-<floor>"). */
 function bossFor(id) {
@@ -75,6 +75,12 @@ async function dungeonProgress(db, userId, lock = false) {
   );
   const p = rows[0];
   if (p.day_text !== p.today) { p.coins_today = 0; p.xp_today = 0; }
+  const lessons = await db.query(
+    `SELECT COUNT(*)::int AS n FROM activity_log WHERE user_id = $1 AND kind = 'lesson_pass'
+       AND (created_at AT TIME ZONE (SELECT COALESCE(timezone, 'America/New_York') FROM users WHERE id = $1))::date = $2::date`,
+    [userId, p.today]
+  );
+  p.coin_cap = coinCapFor(lessons.rows[0].n);
   return p;
 }
 
@@ -88,7 +94,7 @@ function dungeonView(p) {
     runs: p.runs,
     coinsToday: p.coins_today,
     xpToday: p.xp_today,
-    caps: { coins: DAILY_COIN_CAP, xp: DAILY_XP_CAP },
+    caps: { coins: p.coin_cap, xp: DAILY_XP_CAP, maxCoins: 60, perLesson: 10 },
     monster: publicBoss({ ...monsterFor(next), questionPool: null }),
     odds: table ? {
       normalDropChance: table.normalDropChance,
@@ -301,7 +307,7 @@ router.post('/:battleId/finish', async (req, res, next) => {
         dungeon = { floor: boss.floor, best: p.best_floor, newBest: false, coins: 0, xp: 0, capped: false, duplicateCoins: 0 };
         if (result === 'won' && boss.floor === p.current_floor + 1) {
           const r = floorRewards(boss.floor);
-          const c = Math.max(0, Math.min(r.coins, DAILY_COIN_CAP - p.coins_today));
+          let c = Math.max(0, Math.min(r.coins, p.coin_cap - p.coins_today));
           const x = Math.max(0, Math.min(r.xp, DAILY_XP_CAP - p.xp_today));
           dungeon = { ...dungeon, coins: c, xp: x, capped: c < r.coins || x < r.xp, best: Math.max(p.best_floor, boss.floor), newBest: boss.floor > p.best_floor };
           // Loot: odds from content/game/dungeon-loot.json; duplicates become coins.
@@ -312,9 +318,13 @@ router.post('/:battleId/finish', async (req, res, next) => {
               [userId, drop.id]
             );
             if (ins.rows.length) item = drop;
-            else dungeon.duplicateCoins = lootTable()?.duplicateCoins?.[drop.rarity] || 0;
+            else {
+              // Duplicates turn into coins, inside the same daily cap.
+              dungeon.duplicateCoins = Math.max(0, Math.min(lootTable()?.duplicateCoins?.[drop.rarity] || 0, p.coin_cap - p.coins_today - c));
+              c += dungeon.duplicateCoins;
+            }
           }
-          coins = c + dungeon.duplicateCoins;
+          coins = c;
           await awardXp(db, userId, 'dungeon', boss.id, x, coins);
           await db.query(
             `UPDATE dungeon_progress SET current_floor = $1, best_floor = GREATEST(best_floor, $1), day = $2::date,
@@ -355,8 +365,8 @@ router.post('/:battleId/finish', async (req, res, next) => {
         streak = await touchStreak(db, userId);
       }
       // Pop Quizzes (taken after this fight's rewards, never below 0): wrong answers, plus ones the fight should have had but didn't, cost coins.
-      // Missing ones only count on wins (pausing can stretch a lost fight's clock), at most 2.
-      const popMissed = result === 'won' ? Math.min(2, Math.max(0, Math.floor(seconds / POP_EXPECT_SECONDS) - b.pop_indexes.length)) : 0;
+      // Missing ones only count on wins (pausing can stretch a lost fight's clock), at most 1.
+      const popMissed = result === 'won' ? Math.min(1, Math.max(0, Math.floor(seconds / POP_EXPECT_SECONDS) - b.pop_indexes.length)) : 0;
       const coinsLost = Math.min(POP_MAX_COINS, (b.pop_wrong + popMissed) * POP_COINS, (await db.query('SELECT coins FROM users WHERE id = $1', [userId])).rows[0].coins);
       if (coinsLost > 0) {
         await db.query('UPDATE users SET coins = coins - $1 WHERE id = $2', [coinsLost, userId]);

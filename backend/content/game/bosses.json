@@ -12,7 +12,7 @@
         "unit": "money",
         "chapter": 1
       },
-      "hp": 300,
+      "hp": 250,
       "speed": 0.7,
       "lesson": "Inflation quietly shrinks idle cash, so you beat it by learning to put money to work, not by swinging harder.",
       "intro": "Your dollar bought a burrito last year. Now it buys most of a burrito. Next year? A tortilla. I'm patient.",
@@ -66,6 +66,15 @@
           "damage": 10,
           "cooldown": 31,
           "text": "The arena walls close in for 3 seconds. Same arena, less room: get to the middle."
+        },
+        {
+          "pattern": "balloon",
+          "name": "Inflation Balloon",
+          "damage": 9,
+          "cooldown": 12,
+          "text": "Swelling price balloons drift at you, then pop into a ring. Pop them early from range or get clear.",
+          "signature": true,
+          "count": 3
         }
       ],
       "questionPool": {
@@ -79,7 +88,33 @@
         "repeatCoins": 10,
         "xp": 60,
         "item": "piggy-mallet"
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "say": "Prices, rise!",
+          "mobs": [
+            {
+              "type": "swarmer",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "say": "More, more!",
+          "mobs": [
+            {
+              "type": "zombie",
+              "count": 3
+            },
+            {
+              "type": "healer",
+              "count": 1
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w1-vex-vulture",
@@ -137,6 +172,14 @@
           "cooldown": 6.5,
           "count": 5,
           "text": "A fan of 5 feathers. Up close the gaps are wider; stand in one."
+        },
+        {
+          "pattern": "dive",
+          "name": "Panic Dive",
+          "damage": 12,
+          "cooldown": 11,
+          "text": "Swoops straight through where you stand, shedding feathers. Sidestep the line.",
+          "signature": true
         }
       ],
       "questionPool": {
@@ -150,7 +193,32 @@
         "repeatCoins": 10,
         "xp": 85,
         "item": null
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "say": "Sell! Sell everything!",
+          "mobs": [
+            {
+              "type": "swarmer",
+              "count": 8
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "mobs": [
+            {
+              "type": "shooter",
+              "count": 2
+            },
+            {
+              "type": "swarmer",
+              "count": 4
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w1-count-ponzi",
@@ -215,6 +283,15 @@
           "damage": 10,
           "cooldown": 24,
           "text": "A wall of ACT NOW signs sweeps across with one gap. Walk to the gap; don't rush into the wall."
+        },
+        {
+          "pattern": "pyramid",
+          "name": "Pyramid Scheme",
+          "damage": 8,
+          "cooldown": 12,
+          "text": "One payout splits in two, then four, then eight. Get out of the fan before it spreads.",
+          "signature": true,
+          "count": 3
         }
       ],
       "questionPool": {
@@ -226,7 +303,34 @@
         "repeatCoins": 12,
         "xp": 120,
         "item": null
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "say": "Recruit your friends!",
+          "mobs": [
+            {
+              "type": "splitter",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "say": "Early investors, protect me!",
+          "mobs": [
+            {
+              "type": "healer",
+              "count": 2
+            },
+            {
+              "type": "splitter",
+              "count": 1,
+              "elite": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w2-fudge-bookcooker",
@@ -284,6 +388,15 @@
           "cooldown": 14.5,
           "count": 14,
           "text": "The pot boils over in a ring of hot pages. Dash through a gap."
+        },
+        {
+          "pattern": "shuffle",
+          "name": "Cooked Books",
+          "damage": 10,
+          "cooldown": 12,
+          "text": "Numbers freeze mid-air, get rearranged, then all fly at you. Move after they stop.",
+          "signature": true,
+          "count": 7
         }
       ],
       "questionPool": {
@@ -298,7 +411,32 @@
         "repeatCoins": 12,
         "xp": 125,
         "item": null
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "mobs": [
+            {
+              "type": "shooter",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "say": "Shred the evidence!",
+          "mobs": [
+            {
+              "type": "tank",
+              "count": 1
+            },
+            {
+              "type": "shooter",
+              "count": 2
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w2-mr-market",
@@ -364,6 +502,15 @@
           "cooldown": 9,
           "count": 6,
           "text": "6 masks in a wide fan. Close the distance and stand in a gap."
+        },
+        {
+          "pattern": "sine",
+          "name": "Mood Swing Wave",
+          "damage": 9,
+          "cooldown": 11,
+          "text": "A weaving stream of quotes. Don't follow the wiggle, step out of its lane.",
+          "signature": true,
+          "count": 14
         }
       ],
       "questionPool": {
@@ -377,7 +524,35 @@
         "repeatCoins": 12,
         "xp": 155,
         "item": "margin-of-safety-plate"
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "mobs": [
+            {
+              "type": "swarmer",
+              "count": 6
+            },
+            {
+              "type": "bomber",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "mobs": [
+            {
+              "type": "turret",
+              "count": 2
+            },
+            {
+              "type": "zombie",
+              "count": 3
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w2-tilt-titan",
@@ -442,6 +617,15 @@
           "damage": 22,
           "cooldown": 29.5,
           "text": "Both fists up, then a huge ground slam. Leave the red circle before it fills."
+        },
+        {
+          "pattern": "tantrum",
+          "name": "Tilt Tantrum",
+          "damage": 14,
+          "cooldown": 11,
+          "text": "A chain of slams marching toward you. Move sideways, not backwards.",
+          "signature": true,
+          "count": 4
         }
       ],
       "questionPool": {
@@ -453,7 +637,34 @@
         "repeatCoins": 15,
         "xp": 190,
         "item": null
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "say": "Revenge trade!",
+          "mobs": [
+            {
+              "type": "bomber",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "say": "DOUBLE DOWN!",
+          "mobs": [
+            {
+              "type": "zombie",
+              "count": 1,
+              "elite": true
+            },
+            {
+              "type": "bomber",
+              "count": 3
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w3-theta-reaper",
@@ -520,6 +731,14 @@
           "cooldown": 20.5,
           "count": 12,
           "text": "Hourglasses fall on marked spots. Weave between the shadows."
+        },
+        {
+          "pattern": "decay",
+          "name": "Time Decay",
+          "damage": 8,
+          "cooldown": 16,
+          "text": "The safe zone shrinks toward the middle. Get inside the purple circle before it closes.",
+          "signature": true
         }
       ],
       "questionPool": {
@@ -534,7 +753,32 @@
         "repeatCoins": 15,
         "xp": 200,
         "item": "policyholder-plate"
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "say": "Expiring soon...",
+          "mobs": [
+            {
+              "type": "zombie",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "mobs": [
+            {
+              "type": "healer",
+              "count": 2
+            },
+            {
+              "type": "shooter",
+              "count": 2
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w3-magmus-vega",
@@ -600,6 +844,15 @@
           "cooldown": 8,
           "count": 7,
           "text": "7 embers in a curved fan. The middle gap is the widest."
+        },
+        {
+          "pattern": "lava",
+          "name": "Volatility Eruption",
+          "damage": 10,
+          "cooldown": 12,
+          "text": "Lava pools that linger for six seconds. Don't fight standing in one.",
+          "signature": true,
+          "count": 3
         }
       ],
       "questionPool": {
@@ -611,7 +864,32 @@
         "repeatCoins": 18,
         "xp": 230,
         "item": null
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "mobs": [
+            {
+              "type": "turret",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "say": "Erupt!",
+          "mobs": [
+            {
+              "type": "bomber",
+              "count": 3
+            },
+            {
+              "type": "splitter",
+              "count": 2
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w4-margin-caller",
@@ -675,6 +953,14 @@
           "cooldown": 6.5,
           "count": 7,
           "text": "7 red numbers in a fan. Stand in a gap or circle around him."
+        },
+        {
+          "pattern": "beam",
+          "name": "Margin Call",
+          "damage": 18,
+          "cooldown": 10,
+          "text": "A red line locks onto you, then fires a beam the length of the arena. Step off the line.",
+          "signature": true
         }
       ],
       "questionPool": {
@@ -689,7 +975,37 @@
         "repeatCoins": 20,
         "xp": 250,
         "item": "hedgers-vest"
-      }
+      },
+      "waves": [
+        {
+          "at": 0.66,
+          "say": "Collections, go!",
+          "mobs": [
+            {
+              "type": "tank",
+              "count": 2
+            },
+            {
+              "type": "shooter",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "mobs": [
+            {
+              "type": "shooter",
+              "count": 1,
+              "elite": true
+            },
+            {
+              "type": "bomber",
+              "count": 3
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "boss-w4-black-swan",
@@ -754,6 +1070,14 @@
           "cooldown": 12,
           "count": 3,
           "text": "3 dark orbs chase you. Lead them into walls or shoot them before they converge."
+        },
+        {
+          "pattern": "blackout",
+          "name": "Black Swan Event",
+          "damage": 9,
+          "cooldown": 15,
+          "text": "The lights go out and only your corner is visible while shots come in. Keep moving.",
+          "signature": true
         }
       ],
       "questionPool": {
@@ -765,7 +1089,56 @@
         "repeatCoins": 25,
         "xp": 280,
         "item": null
-      }
+      },
+      "waves": [
+        {
+          "at": "start",
+          "label": "Opening wave",
+          "mobs": [
+            {
+              "type": "zombie",
+              "count": 4
+            },
+            {
+              "type": "swarmer",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "at": 0.66,
+          "mobs": [
+            {
+              "type": "tank",
+              "count": 1,
+              "elite": true
+            },
+            {
+              "type": "turret",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "at": 0.33,
+          "say": "Nobody saw me coming.",
+          "mobs": [
+            {
+              "type": "splitter",
+              "count": 1,
+              "elite": true
+            },
+            {
+              "type": "healer",
+              "count": 2
+            },
+            {
+              "type": "swarmer",
+              "count": 6
+            }
+          ]
+        }
+      ]
     }
   ]
 }

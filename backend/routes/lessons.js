@@ -2,6 +2,7 @@
 // visitors can browse the course map; lesson bodies, grading and exams need
 // an account.
 import express from 'express';
+import { DEFAULT_APPEARANCE } from '../services/game.js';
 import { isAdmin } from '../services/adminAccess.js';
 import crypto from 'crypto';
 import { query, withTransaction } from '../db/pool.js';
@@ -291,12 +292,12 @@ router.get('/leaderboard', async (req, res, next) => {
   try {
     const [weekly, allTime, me] = await Promise.all([
       query(
-        `SELECT u.username, u.avatar, SUM(e.amount)::int AS xp FROM xp_events e JOIN users u ON u.id = e.user_id
+        `SELECT u.username, u.avatar, u.avatar_config AS look, SUM(e.amount)::int AS xp FROM xp_events e JOIN users u ON u.id = e.user_id
          WHERE e.created_at >= date_trunc('week', NOW()) AND u.show_on_leaderboard AND u.is_active
          GROUP BY u.id ORDER BY xp DESC LIMIT 25`
       ),
       query(
-        `SELECT username, avatar, xp, streak_current AS streak FROM users
+        `SELECT username, avatar, avatar_config AS look, xp, streak_current AS streak FROM users
          WHERE show_on_leaderboard AND is_active AND xp > 0 ORDER BY xp DESC LIMIT 25`
       ),
       query(
@@ -307,7 +308,9 @@ router.get('/leaderboard', async (req, res, next) => {
         [req.user.userId]
       ),
     ]);
-    res.json({ weekly: weekly.rows, allTime: allTime.rows, me: me.rows[0] });
+    // Everyone gets a Hideout face on the board, even if they never customized it.
+    const withLook = (rows) => rows.map((r) => ({ ...r, look: { ...DEFAULT_APPEARANCE, ...(r.look || {}) } }));
+    res.json({ weekly: withLook(weekly.rows), allTime: withLook(allTime.rows), me: me.rows[0] });
   } catch (err) {
     next(err);
   }

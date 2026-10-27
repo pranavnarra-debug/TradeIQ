@@ -1,0 +1,249 @@
+{
+  "ranAt": "2026-10-27T05:46:35.461Z",
+  "bots": 1000,
+  "days": 14,
+  "users": 1000,
+  "requests": 78647,
+  "retention": {
+    "D1": 72,
+    "D3": 56,
+    "D7": 30
+  },
+  "byType": {
+    "casual": {
+      "players": 397,
+      "avgLessons": 6,
+      "avgDays": 3.6
+    },
+    "tourist": {
+      "players": 325,
+      "avgLessons": 2,
+      "avgDays": 1.7
+    },
+    "regular": {
+      "players": 214,
+      "avgLessons": 12,
+      "avgDays": 5.8
+    },
+    "hardcore": {
+      "players": 64,
+      "avgLessons": 24,
+      "avgDays": 7.2
+    }
+  },
+  "lessonsPerPlayer": [
+    {
+      "b": 1,
+      "players": 920
+    },
+    {
+      "b": 2,
+      "players": 78
+    },
+    {
+      "b": 3,
+      "players": 2
+    }
+  ],
+  "exams": [
+    {
+      "unit_id": "money",
+      "passed": 0,
+      "players": 12,
+      "avg_best": "35"
+    }
+  ],
+  "bosses": [
+    {
+      "boss_id": "boss-w1-count-ponzi",
+      "fights": 9,
+      "wins": 1,
+      "beaten_by": 1,
+      "avg_correct": "14"
+    },
+    {
+      "boss_id": "boss-w1-inflato",
+      "fights": 1376,
+      "wins": 155,
+      "beaten_by": 62,
+      "avg_correct": "8"
+    },
+    {
+      "boss_id": "boss-w1-vex-vulture",
+      "fights": 62,
+      "wins": 7,
+      "beaten_by": 6,
+      "avg_correct": "10"
+    }
+  ],
+  "fightsByBoss": {
+    "boss-w1-inflato": {
+      "fights": 1376,
+      "won": 155,
+      "rejected": 0,
+      "avgSimSeconds": 140,
+      "winRate": 11
+    },
+    "boss-w1-vex-vulture": {
+      "fights": 62,
+      "won": 7,
+      "rejected": 0,
+      "avgSimSeconds": 163,
+      "winRate": 11
+    },
+    "boss-w1-count-ponzi": {
+      "fights": 9,
+      "won": 1,
+      "rejected": 0,
+      "avgSimSeconds": 198,
+      "winRate": 11
+    }
+  },
+  "coinsNow": {
+    "p": [
+      30,
+      120,
+      355
+    ],
+    "max": 1018
+  },
+  "coinFlow": [
+    {
+      "reason": "quest",
+      "total": 103421,
+      "events": 4150
+    },
+    {
+      "reason": "shop",
+      "total": -79760,
+      "events": 776
+    }
+  ],
+  "xpBySource": [
+    {
+      "source": "lesson",
+      "total": 326720
+    },
+    {
+      "source": "achievement",
+      "total": 78505
+    },
+    {
+      "source": "streak",
+      "total": 6845
+    },
+    {
+      "source": "boss",
+      "total": 4350
+    },
+    {
+      "source": "lesson_retry",
+      "total": 198
+    },
+    {
+      "source": "boss_repeat",
+      "total": 0
+    }
+  ],
+  "xpPercentiles": [
+    73,
+    260,
+    960.6000000000001
+  ],
+  "streaks": {
+    "p": [
+      2,
+      5
+    ],
+    "max": 12
+  },
+  "topShopItems": [
+    {
+      "item_id": "rainy-day-hood",
+      "owners": 211
+    },
+    {
+      "item_id": "compound-crossbow",
+      "owners": 150
+    },
+    {
+      "item_id": "compound-cuirass",
+      "owners": 75
+    },
+    {
+      "item_id": "safety-net-leggings",
+      "owners": 66
+    },
+    {
+      "item_id": "puddle-proof-boots",
+      "owners": 49
+    },
+    {
+      "item_id": "rule-of-72-greaves",
+      "owners": 36
+    },
+    {
+      "item_id": "snowball-helm",
+      "owners": 20
+    },
+    {
+      "item_id": "fifty-thirty-twenty-tunic",
+      "owners": 20
+    },
+    {
+      "item_id": "planning-cap",
+      "owners": 19
+    },
+    {
+      "item_id": "nest-egg-boots",
+      "owners": 18
+    }
+  ],
+  "topQuests": [
+    {
+      "quest_id": "q-w1-pennys-leak",
+      "claims": 802
+    },
+    {
+      "quest_id": "q-w1-two-of-a-kind",
+      "claims": 613
+    },
+    {
+      "quest_id": "q-daily-deposit",
+      "claims": 475
+    },
+    {
+      "quest_id": "q-w1-card-trap",
+      "claims": 424
+    },
+    {
+      "quest_id": "q-daily-double-deposit",
+      "claims": 386
+    },
+    {
+      "quest_id": "q-daily-nailed-it",
+      "claims": 320
+    },
+    {
+      "quest_id": "q-daily-dear-diary",
+      "claims": 212
+    },
+    {
+      "quest_id": "q-w1-airbag-check",
+      "claims": 183
+    },
+    {
+      "quest_id": "q-w1-first-paycheck",
+      "claims": 141
+    },
+    {
+      "quest_id": "q-w1-three-months-strong",
+      "claims": 137
+    }
+  ],
+  "lessonsFailed": 1093,
+  "trades": 2730,
+  "itemsBought": 776,
+  "questClaims": 4313,
+  "serverErrors": {}
+}

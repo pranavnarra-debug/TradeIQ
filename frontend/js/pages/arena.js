@@ -42,7 +42,7 @@ const Arena = (() => {
         <p>An endless climb. Every floor is a fight, every 5th is a Guardian, and monsters drop gear (${d.lootCount} pieces to find). Lose and your run starts over at floor 1.</p>
         <div class="dungeon-stats">
           <span class="chip-tag">${Sprites.icon('trophy', 14)} Best: floor ${d.bestFloor}</span>
-          <span class="chip-tag" title="Daily cap">${Sprites.icon('coin', 14)} ${d.coinsToday}/${d.caps.coins} coins today</span>
+          <span class="chip-tag" title="Your daily Dungeon coin cap: 30, plus 10 for each lesson you pass today (up to 60)">${Sprites.icon('coin', 14)} ${d.coinsToday}/${d.caps.coins} coins today${d.caps.coins < d.caps.maxCoins ? ` · +${d.caps.perLesson} cap per lesson` : ''}</span>
           <span class="chip-tag" title="Daily cap">${Sprites.icon('star', 14)} ${d.xpToday}/${d.caps.xp} XP today</span>
         </div>
         <div class="cap-bar" aria-hidden="true"><span style="width:${pct(d.coinsToday, d.caps.coins)}%"></span></div>
@@ -140,7 +140,7 @@ const Arena = (() => {
             <li>Each correct answer adds a charge pip (max 3). Wrong answers cost a pip and power the boss up.</li>
             <li>Aim and fire (<span class="kbd">Click</span> or <span class="kbd">J</span>). A charged shot hits hard, but if it misses the charge is gone.</li>
             <li>Dodge with <span class="kbd">Shift</span>. Red zones and lines show where attacks will land. Dashing again too soon leaves you winded.</li>
-            <li><b>Pop Quiz:</b> every 30 seconds the boss asks you a question. Get it right to stun them; wrong or too slow costs 5 coins.</li></ol>
+            <li><b>Pop Quiz:</b> every 30 seconds the boss asks you a question. Get it right to stun them; wrong or too slow costs 2 coins.</li></ol>
           ${boss.mechanic?.type !== 'none' ? `<p class="mechanic"><b>Gimmick:</b> ${escapeHtml(boss.mechanic.text)}</p>` : ''}
           <div class="attack-list">${boss.attacks.map((a) => `<div class="atk">${Sprites.icon(PATTERN_ICON[a.pattern] || 'warning', 18)}<span><b>${escapeHtml(a.name)}</b> ${escapeHtml(a.text || '')}</span></div>`).join('')}</div>
           <label class="check-line"><input type="checkbox" id="pf-assist" ${assist ? 'checked' : ''}/><span><b>Assist mode:</b> slower boss, bigger warnings, no question timer. Same rewards.</span></label>

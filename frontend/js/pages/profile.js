@@ -87,7 +87,7 @@ const Ranks = (() => {
     const me = Session.user;
     let tab = 'weekly';
     const list = (rows, key) => (rows.length ? `<ol class="rank-list">${rows.map((r, i) => `<li class="${r.username === me.username ? 'me' : ''}">
-        <span class="pos p${i + 1}">${i + 1}</span>${Sprites.character(r.avatar || 'chip', 36)}<span class="who">${escapeHtml(r.username)}</span><span class="pts">${Number(r[key]).toLocaleString()} XP</span></li>`).join('')}</ol>`
+        <span class="pos p${i + 1}">${i + 1}</span>${r.look && Object.keys(r.look).length ? Avatar.render(r.look, [], { size: 36, title: r.username, viewBox: '4 0 16 16' }) : Sprites.character(r.avatar || 'chip', 36)}<span class="who">${escapeHtml(r.username)}</span><span class="pts">${Number(r[key]).toLocaleString()} XP</span></li>`).join('')}</ol>`
       : `<div class="empty-state">${Sprites.character('hoot', 72)}No one has earned XP yet this week. Be first!</div>`);
     function draw() {
       view.innerHTML = `<div class="page wrap" style="max-width:760px">
