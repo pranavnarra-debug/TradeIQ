@@ -118,13 +118,15 @@ const Learn = (() => {
         <div class="spacer"></div>
         <div class="row-wrap">${cat.units.map((u) => `<a class="chip-tag" href="#unit-${u.id}" data-jump="${u.id}" style="background:${u.color}">${u.number}. ${escapeHtml(u.title)}</a>`).join('')}</div>
       </div>
-      ${prog ? topSection(cat, prog) : `<div class="card" style="display:flex;gap:16px;align-items:center;margin-bottom:34px;background:var(--sun-l);flex-wrap:wrap">
+      ${prog ? `${topSection(cat, prog)}<div id="quest-teaser" class="quest-teaser-wrap"></div>` : `<div class="card" style="display:flex;gap:16px;align-items:center;margin-bottom:34px;background:var(--sun-l);flex-wrap:wrap">
         ${Sprites.character('chip', 64)}<div style="flex:1;min-width:220px"><b style="font-size:19px">Browse everything. Sign up to start.</b><br><span class="muted">Tap any lesson to see what's inside. Your XP, streak and badges save once you have an account.</span></div>
         <button class="btn btn-primary" data-signup>Start free</button></div>`}
       ${cat.units.filter((u) => u.lessonCount).map((u) => unitHtml(u, prog)).join('')}
     </div>`;
 
     view.querySelector('[data-signup]')?.addEventListener('click', () => AuthModal.open('signup'));
+    const teaser = document.getElementById('quest-teaser');
+    if (teaser) Arena.questTeaser(teaser);
     view.querySelectorAll('[data-jump]').forEach((a) => a.addEventListener('click', (e) => {
       e.preventDefault();
       document.getElementById(`unit-${a.dataset.jump}`)?.scrollIntoView({ behavior: 'smooth' });

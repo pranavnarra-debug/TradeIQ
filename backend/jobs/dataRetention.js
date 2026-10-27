@@ -50,6 +50,16 @@ export function startDataRetentionJobs() {
     }
   });
 
+  cron.schedule('30 3 * * *', async () => {
+    try {
+      const a = await query(`DELETE FROM activity_log WHERE created_at < NOW() - INTERVAL '120 days'`);
+      const b = await query(`DELETE FROM battles WHERE status IN ('abandoned', 'active') AND started_at < NOW() - INTERVAL '7 days'`);
+      console.log(`[dataRetention] Purged ${a.rowCount} activity_log rows, ${b.rowCount} stale battles`);
+    } catch (err) {
+      console.error('[dataRetention] Failed to purge activity/battles:', err.message);
+    }
+  });
+
   // Monthly on the 1st at 3am: trim admin_metrics_snapshots beyond a year of
   // history. The admin dashboard only ever charts the trailing 30 days; a full
   // year of hourly snapshots is already generous headroom for any future use.

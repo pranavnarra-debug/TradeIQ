@@ -166,3 +166,31 @@
 .cta-band p { color: #d8ccb4; margin: 0; font-size: 18px; }
 .cta-band .btn { margin-left: auto; }
 .cta-band .sprites-row { display: flex; gap: 4px; }
+
+/* ============================================================
+   Polish pass (UX audit)
+   ============================================================ */
+/* CTA band: text takes the middle so the button stays on the same row on desktop. */
+.cta-band > div:nth-child(2) { flex: 1 1 320px; min-width: 0; }
+.cta-band .btn { flex-shrink: 0; }
+
+/* Worlds: an odd last card fills the row instead of leaving a hole. */
+.worlds > .world:not(.big):last-child:nth-child(even) { grid-column: 1 / -1; }
+
+/* The mock desk is decoration: its buttons shouldn't look clickable. */
+.desk-mock .btn { pointer-events: none; }
+
+@media (max-width: 600px) {
+  .hero-ctas .btn { flex: 1 1 100%; }
+  .world.big .world-head { padding-top: 40px; }
+  .world-badge { top: 10px; right: 10px; }
+  .world-head { padding: 16px; }
+  .world-body { padding: 14px 16px 18px; }
+  .world-chapters li { align-items: flex-start; }
+  .world-chapters li .n { margin-top: 2px; }
+  .crew-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .cta-band { gap: 18px; }
+  .cta-band .btn { margin-left: 0; width: 100%; }
+  .faq summary { padding: 14px 16px; font-size: 16.5px; }
+  .faq details > div { padding: 0 16px 14px; }
+}

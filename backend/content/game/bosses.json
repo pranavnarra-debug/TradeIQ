@@ -1,0 +1,771 @@
+{
+  "version": 1,
+  "notes": "Written by game design. Mechanic and attack semantics are defined in docs/game/GAME_DESIGN.md section 13. Optional fields the engine may use: look.template (bossArt template), mechanic.resetOn, mechanic.buffDrain.",
+  "bosses": [
+    {
+      "id": "boss-w1-inflato",
+      "name": "Inflato the Slow Leak",
+      "title": "Shrinker of Dollars",
+      "world": 1,
+      "order": 1,
+      "unlock": {
+        "unit": "money",
+        "chapter": 1
+      },
+      "hp": 300,
+      "speed": 0.7,
+      "lesson": "Inflation quietly shrinks idle cash, so you beat it by learning to put money to work, not by swinging harder.",
+      "intro": "Your dollar bought a burrito last year. Now it buys most of a burrito. Next year? A tortilla. I'm patient.",
+      "taunts": [
+        "Every second you stall, I grow back. That's how this works.",
+        "Cash under the mattress? Delicious.",
+        "Three percent a year doesn't sound like much. That's my favorite part.",
+        "Same price, smaller bag. You won't even notice."
+      ],
+      "defeat": "Fine. Park your money somewhere that out-earns me. I'll be back next year, at about three percent.",
+      "look": {
+        "body": "#e8577a",
+        "accent": "#ffd23f",
+        "eye": "#2b1d3a",
+        "template": "blob",
+        "description": "A round pink balloon-blob with a tied knot on top and a leaky patch hissing tiny gold dollar signs. Smug half-lidded eyes and a gold price tag dangling from the knot."
+      },
+      "mechanic": {
+        "type": "regen",
+        "value": 1,
+        "text": "Inflato regains 1 HP every second outside Focus Time. Chip shots can't keep up: charge with right answers and hit hard."
+      },
+      "attacks": [
+        {
+          "pattern": "ring",
+          "name": "Price Surge",
+          "damage": 8,
+          "cooldown": 13.5,
+          "count": 14,
+          "text": "An expanding ring of price tags. Slip through a gap or dash straight through it."
+        },
+        {
+          "pattern": "rain",
+          "name": "Rate-Hike Hail",
+          "damage": 8,
+          "cooldown": 18,
+          "count": 8,
+          "text": "Shadows mark where coins will land. Step out of the circles."
+        },
+        {
+          "pattern": "homing",
+          "name": "Lifestyle Creep",
+          "damage": 10,
+          "cooldown": 22,
+          "count": 1,
+          "text": "A slow blob follows you and grows the longer it lives. Shoot it early or lead it into a wall."
+        },
+        {
+          "pattern": "wall",
+          "name": "Shrinkflation",
+          "damage": 10,
+          "cooldown": 31,
+          "text": "The arena walls close in for 3 seconds. Same arena, less room: get to the middle."
+        }
+      ],
+      "questionPool": {
+        "unit": "money",
+        "chapters": [
+          1
+        ]
+      },
+      "rewards": {
+        "firstWinCoins": 100,
+        "repeatCoins": 10,
+        "xp": 60,
+        "item": "piggy-mallet"
+      }
+    },
+    {
+      "id": "boss-w1-vex-vulture",
+      "name": "Vex the Volatility Vulture",
+      "title": "Circler of Drawdowns",
+      "world": 1,
+      "order": 2,
+      "unlock": {
+        "unit": "money",
+        "chapter": 3
+      },
+      "hp": 450,
+      "speed": 0.9,
+      "lesson": "Volatility is the price of growth: people who keep investing through drawdowns usually beat people who try to time the exit.",
+      "intro": "Markets drop. People panic. People sell at the bottom. I eat well. Let's see if you flinch.",
+      "taunts": [
+        "Down 20 percent! Sell everything! ...No? Hm.",
+        "Timing the market is easy. You just have to be right twice.",
+        "The scariest drop always feels like the last one.",
+        "Look at all that red. Doesn't it make you want to leave?"
+      ],
+      "defeat": "You stayed in. Nobody stays in. ...Well, the ones who did are mostly doing fine.",
+      "look": {
+        "body": "#4b3f6b",
+        "accent": "#d94f4f",
+        "eye": "#ffe14d",
+        "template": "beast",
+        "description": "A scrawny purple vulture with a red zig-zag stock-chart crest and ragged spread wings. Beady yellow eyes, hunched like it's waiting for you to panic."
+      },
+      "mechanic": {
+        "type": "shield_phase",
+        "value": 5,
+        "text": "Every 20 seconds Vex flies out of reach for 5 seconds: the drawdown. You can't hit her, but you can keep answering. Charge through the dip and come out swinging."
+      },
+      "attacks": [
+        {
+          "pattern": "rain",
+          "name": "Red Candle Rain",
+          "damage": 9,
+          "cooldown": 9,
+          "count": 8,
+          "text": "Red candles drop on marked spots. Keep moving between the shadows."
+        },
+        {
+          "pattern": "charge",
+          "name": "Panic Dive",
+          "damage": 12,
+          "cooldown": 12,
+          "text": "She tucks her wings, then dives in a line. Dash sideways, not backwards."
+        },
+        {
+          "pattern": "volley",
+          "name": "Feather Fan",
+          "damage": 8,
+          "cooldown": 6.5,
+          "count": 5,
+          "text": "A fan of 5 feathers. Up close the gaps are wider; stand in one."
+        }
+      ],
+      "questionPool": {
+        "unit": "money",
+        "chapters": [
+          3
+        ]
+      },
+      "rewards": {
+        "firstWinCoins": 100,
+        "repeatCoins": 10,
+        "xp": 85,
+        "item": null
+      }
+    },
+    {
+      "id": "boss-w1-count-ponzi",
+      "name": "Count Ponzi",
+      "title": "The Pyramid King",
+      "world": 1,
+      "order": 3,
+      "unlock": {
+        "unit": "money",
+        "chapter": "all"
+      },
+      "hp": 580,
+      "speed": 1,
+      "lesson": "A Ponzi scheme pays early investors with new investors' money, so it collapses as soon as the new money stops.",
+      "intro": "Guaranteed 20 percent a month, zero risk! Bring a friend, earn a bonus! Why would a man in a cape lie to you?",
+      "taunts": [
+        "Returns are guaranteed! The guarantee is also guaranteed.",
+        "Don't ask where the money comes from. It's... strategy.",
+        "Act now! This offer ends in ten minutes!",
+        "My early investors love me. The later ones, less so."
+      ],
+      "defeat": "No new recruits... no new money... the whole pyramid is... wobbling...",
+      "look": {
+        "body": "#6b2fa3",
+        "accent": "#ffcc33",
+        "eye": "#ffffff",
+        "template": "suit",
+        "description": "A short count in a purple cape and a tall gold pyramid-shaped crown. Slick mustache, enormous grin, a fistful of glittering fake certificates."
+      },
+      "mechanic": {
+        "type": "summon",
+        "value": 10,
+        "text": "Every 10 seconds Ponzi recruits a new investor (up to 3). Each one feeds him 1 HP per second. Recruits quit after 3 chip shots or any charged shot. Stop the new money and the scheme falls apart."
+      },
+      "attacks": [
+        {
+          "pattern": "homing",
+          "name": "Guaranteed Returns",
+          "damage": 9,
+          "cooldown": 15,
+          "count": 3,
+          "text": "3 slow gold certificates chase you and pop on walls. Lead them into one."
+        },
+        {
+          "pattern": "slam",
+          "name": "Pyramid Scheme",
+          "damage": 13,
+          "cooldown": 18.5,
+          "text": "He leaps and a triangle shadow marks the landing. Get out of the triangle."
+        },
+        {
+          "pattern": "ring",
+          "name": "Recruitment Drive",
+          "damage": 8,
+          "cooldown": 13,
+          "count": 12,
+          "text": "A ring of flyers spreads out. Dash through a gap."
+        },
+        {
+          "pattern": "wall",
+          "name": "Limited-Time Offer",
+          "damage": 10,
+          "cooldown": 24,
+          "text": "A wall of ACT NOW signs sweeps across with one gap. Walk to the gap; don't rush into the wall."
+        }
+      ],
+      "questionPool": {
+        "unit": "money",
+        "chapters": "all"
+      },
+      "rewards": {
+        "firstWinCoins": 150,
+        "repeatCoins": 12,
+        "xp": 120,
+        "item": null
+      }
+    },
+    {
+      "id": "boss-w2-fudge-bookcooker",
+      "name": "Fudge the Bookcooker",
+      "title": "Chef of Adjusted Earnings",
+      "world": 2,
+      "order": 1,
+      "unlock": {
+        "unit": "stocks",
+        "chapter": 2
+      },
+      "hp": 650,
+      "speed": 1,
+      "lesson": "Profit can be dressed up with accounting choices, but cash flow is much harder to fake, so check where the money really went.",
+      "intro": "Revenue up 400 percent! Adjusted revenue. Community-adjusted revenue. Please don't read the footnotes.",
+      "taunts": [
+        "That loss was one-time. Like the last six.",
+        "Profit is whatever I say it is.",
+        "Cash flow statement? Never heard of her.",
+        "Which one of me is real? Read the numbers."
+      ],
+      "defeat": "You read the cash flow statement. Nobody reads the cash flow statement!",
+      "look": {
+        "body": "#f2efe6",
+        "accent": "#c0392b",
+        "eye": "#2b2b2b",
+        "template": "suit",
+        "description": "A plump chef in a white jacket and tall toque with a red bow tie, stirring a pot of boiling ledger pages. Papers poke out of every pocket and his eyes dart sideways."
+      },
+      "mechanic": {
+        "type": "mirror",
+        "value": 2,
+        "text": "Every 20 seconds Fudge cooks up 2 decoy copies of himself. Decoys take no damage. Only the real Fudge casts a gold coin-colored shadow: cash is a fact. Hit the real one and the decoys vanish."
+      },
+      "attacks": [
+        {
+          "pattern": "volley",
+          "name": "Adjusted Earnings",
+          "damage": 10,
+          "cooldown": 8,
+          "count": 5,
+          "text": "A fan of 5 inflated numbers. Step into a gap."
+        },
+        {
+          "pattern": "aimed",
+          "name": "Off-Balance-Sheet Surprise",
+          "damage": 14,
+          "cooldown": 13,
+          "text": "He winds up his ladle and flings one fast ledger at you. Sidestep on the wind-up."
+        },
+        {
+          "pattern": "ring",
+          "name": "Boiling Books",
+          "damage": 12,
+          "cooldown": 14.5,
+          "count": 14,
+          "text": "The pot boils over in a ring of hot pages. Dash through a gap."
+        }
+      ],
+      "questionPool": {
+        "unit": "stocks",
+        "chapters": [
+          1,
+          2
+        ]
+      },
+      "rewards": {
+        "firstWinCoins": 125,
+        "repeatCoins": 12,
+        "xp": 125,
+        "item": null
+      }
+    },
+    {
+      "id": "boss-w2-mr-market",
+      "name": "Mr. Market",
+      "title": "Your Moody Neighbor",
+      "world": 2,
+      "order": 2,
+      "unlock": {
+        "unit": "stocks",
+        "chapter": 3
+      },
+      "hp": 800,
+      "speed": 1.1,
+      "lesson": "Prices swing with crowd emotion, so a patient investor buys when fear makes good companies cheap and ignores the euphoria.",
+      "intro": "Hello, neighbor! Today I'll sell you my shares for double what they're worth. Or half. Depends how I feel.",
+      "taunts": [
+        "Everything is wonderful! Buy! Buy right now!",
+        "Everything is terrible. Take these shares off my hands. Please.",
+        "You don't have to trade with me. But you want to, don't you?",
+        "New price tomorrow. And the day after. Forever."
+      ],
+      "defeat": "You only dealt with me when my price was right. That's annoyingly smart.",
+      "look": {
+        "body": "#2e7dd1",
+        "accent": "#ffd23f",
+        "eye": "#ffffff",
+        "template": "suit",
+        "description": "A lanky man in a blue suit whose head is a two-faced theater mask, one half grinning gold and one half frowning. His tie is a jagged green-and-red price line."
+      },
+      "mechanic": {
+        "type": "mood_swing",
+        "value": 15,
+        "text": "Every 15 seconds Mr. Market flips mood. Euphoric: fast and reckless, and he takes 20% more damage. Despair: slow, heavy attacks, then a 3-second slump where he stands still. Buy the panic."
+      },
+      "attacks": [
+        {
+          "pattern": "charge",
+          "name": "Hype Rush",
+          "damage": 14,
+          "cooldown": 11,
+          "text": "He sprints at you grinning. Dash sideways when the gold face flashes."
+        },
+        {
+          "pattern": "ring",
+          "name": "Panic Sell-Off",
+          "damage": 16,
+          "cooldown": 16,
+          "count": 18,
+          "text": "A shockwave ring from his frowning side. Dash through it as it reaches you."
+        },
+        {
+          "pattern": "homing",
+          "name": "FOMO Lure",
+          "damage": 18,
+          "cooldown": 21.5,
+          "count": 1,
+          "text": "A shiny coin drifts toward you like a free pickup. It's a trap: shoot it or walk away. The Scam Radar Ring flashes it red."
+        },
+        {
+          "pattern": "volley",
+          "name": "Mood Swing",
+          "damage": 10,
+          "cooldown": 9,
+          "count": 6,
+          "text": "6 masks in a wide fan. Close the distance and stand in a gap."
+        }
+      ],
+      "questionPool": {
+        "unit": "stocks",
+        "chapters": [
+          3
+        ]
+      },
+      "rewards": {
+        "firstWinCoins": 125,
+        "repeatCoins": 12,
+        "xp": 155,
+        "item": "margin-of-safety-plate"
+      }
+    },
+    {
+      "id": "boss-w2-tilt-titan",
+      "name": "Tilt, the Revenge Titan",
+      "title": "Bad Trade, Worse Mood",
+      "world": 2,
+      "order": 3,
+      "unlock": {
+        "unit": "stocks",
+        "chapter": "all"
+      },
+      "hp": 950,
+      "speed": 1.2,
+      "lesson": "Losses trigger biases like revenge trading and FOMO, so a written plan and fixed position sizes beat acting on emotion.",
+      "intro": "You lost one? Win it back! Double the size! Right now! Who needs a plan?",
+      "taunts": [
+        "Just one more trade to get it back.",
+        "Everyone else is getting rich. Hurry!",
+        "Stop-loss? Stops are for quitters.",
+        "You're due for a win. Statistically. Probably."
+      ],
+      "defeat": "You took a breath and followed your plan? That's so boring. And so effective.",
+      "look": {
+        "body": "#b8322a",
+        "accent": "#ff8c1a",
+        "eye": "#fff27a",
+        "template": "brute",
+        "description": "A hulking red stone titan with cracked, glowing orange veins and steam blasting from its ears. One fist clutches a smashed phone showing a red number."
+      },
+      "mechanic": {
+        "type": "enrage_below",
+        "value": 50,
+        "text": "Below 50% HP, Tilt loses his cool: 30% faster, but sloppier. Stay calm, keep answering, and let him make the mistakes."
+      },
+      "attacks": [
+        {
+          "pattern": "charge",
+          "name": "Revenge Trade",
+          "damage": 18,
+          "cooldown": 15,
+          "text": "He stamps twice, then charges in a line. Dash sideways after the second stamp."
+        },
+        {
+          "pattern": "volley",
+          "name": "Doubling Down",
+          "damage": 12,
+          "cooldown": 12.5,
+          "count": 6,
+          "text": "A wide fan of 6 rocks. Stand in a gap or get behind him."
+        },
+        {
+          "pattern": "homing",
+          "name": "FOMO Fireballs",
+          "damage": 14,
+          "cooldown": 22,
+          "count": 2,
+          "text": "2 fireballs chase you. Lead them into a wall or shoot them down."
+        },
+        {
+          "pattern": "slam",
+          "name": "Blowup",
+          "damage": 22,
+          "cooldown": 29.5,
+          "text": "Both fists up, then a huge ground slam. Leave the red circle before it fills."
+        }
+      ],
+      "questionPool": {
+        "unit": "stocks",
+        "chapters": "all"
+      },
+      "rewards": {
+        "firstWinCoins": 200,
+        "repeatCoins": 15,
+        "xp": 190,
+        "item": null
+      }
+    },
+    {
+      "id": "boss-w3-theta-reaper",
+      "name": "The Theta Reaper",
+      "title": "Collector of Time Value",
+      "world": 3,
+      "order": 1,
+      "unlock": {
+        "unit": "options",
+        "chapter": 2
+      },
+      "hp": 1000,
+      "speed": 1.2,
+      "lesson": "Options lose time value every day, faster as expiration nears, so time works against the buyer and for the seller.",
+      "intro": "Every option I touch melts a little each day. Yours too. Tick. Tock. That premium is mine.",
+      "taunts": [
+        "Extrinsic value? I'll take that.",
+        "Thirty days left. Twenty. Ten. Feel it speeding up?",
+        "Out of the money at expiry. My favorite word: worthless.",
+        "Enjoy your volatility. It won't last past earnings."
+      ],
+      "defeat": "You used your time better than I could take it. Expiration comes for us all...",
+      "look": {
+        "body": "#1f1d2b",
+        "accent": "#9fe870",
+        "eye": "#9fe870",
+        "template": "specter",
+        "description": "A hooded reaper in a tattered black robe with a glowing green hourglass where its face should be. Its scythe blade is bent into a Greek theta."
+      },
+      "mechanic": {
+        "type": "countdown",
+        "value": 15,
+        "resetOn": null,
+        "buffDrain": 2,
+        "text": "The hourglass never stops. Every 15 seconds the Reaper hits 10% harder (up to double), and your shields and timed buffs drain twice as fast. Nothing resets it: finish before time does."
+      },
+      "attacks": [
+        {
+          "pattern": "slam",
+          "name": "Decay Scythe",
+          "damage": 18,
+          "cooldown": 16.5,
+          "text": "He raises the scythe, then sweeps a wide arc in front. Get behind him or out of reach."
+        },
+        {
+          "pattern": "ring",
+          "name": "IV Crush",
+          "damage": 16,
+          "cooldown": 29,
+          "count": 20,
+          "text": "After a green glow (his earnings), a ring that also wipes your shields. Dash through it."
+        },
+        {
+          "pattern": "aimed",
+          "name": "Pin Risk",
+          "damage": 18,
+          "cooldown": 14.5,
+          "text": "A circle marks your spot and a pin drops on it. Step off the mark."
+        },
+        {
+          "pattern": "rain",
+          "name": "Expiry Rain",
+          "damage": 14,
+          "cooldown": 20.5,
+          "count": 12,
+          "text": "Hourglasses fall on marked spots. Weave between the shadows."
+        }
+      ],
+      "questionPool": {
+        "unit": "options",
+        "chapters": [
+          1,
+          2
+        ]
+      },
+      "rewards": {
+        "firstWinCoins": 150,
+        "repeatCoins": 15,
+        "xp": 200,
+        "item": "policyholder-plate"
+      }
+    },
+    {
+      "id": "boss-w3-magmus-vega",
+      "name": "Magmus Vega",
+      "title": "Heart of Volatility Volcano",
+      "world": 3,
+      "order": 2,
+      "unlock": {
+        "unit": "options",
+        "chapter": "all"
+      },
+      "hp": 1150,
+      "speed": 1.3,
+      "lesson": "Higher volatility makes options pricier and moves bigger in both directions, so defined-risk trades survive eruptions that naked bets don't.",
+      "intro": "Calm is boring. Let's make things volatile. Hope you bought defined risk, little options trader.",
+      "taunts": [
+        "Implied volatility 120 percent. Feeling expensive yet?",
+        "Sold a naked call? Bold. Unlimited, even.",
+        "After the eruption comes the crush.",
+        "Straddle me if you dare."
+      ],
+      "defeat": "You capped your risk on both sides. I can't erupt through a spread...",
+      "look": {
+        "body": "#3b2a2a",
+        "accent": "#ff6a1a",
+        "eye": "#ffe14d",
+        "template": "brute",
+        "description": "A craggy volcano golem with a crater for a head that bubbles over with lava. Glowing orange cracks across its chest curve like a volatility smile."
+      },
+      "mechanic": {
+        "type": "mood_swing",
+        "value": 12,
+        "text": "Every 12 seconds Magmus switches. Eruption: fast and wild, and he takes 20% more damage. Dormant: slow, heavy lava, then a 3-second IV crush where he barely moves. Strike during the crush."
+      },
+      "attacks": [
+        {
+          "pattern": "ring",
+          "name": "Lava Ring",
+          "damage": 18,
+          "cooldown": 11,
+          "count": 20,
+          "text": "A ring of lava bursts out. Dash through a gap as it reaches you."
+        },
+        {
+          "pattern": "rain",
+          "name": "Vol Spike",
+          "damage": 16,
+          "cooldown": 12.5,
+          "count": 14,
+          "text": "Molten rocks rain on marked spots. Keep moving."
+        },
+        {
+          "pattern": "charge",
+          "name": "Naked Call",
+          "damage": 22,
+          "cooldown": 16,
+          "text": "Unlimited downside: a huge straight-line charge after a long rumble. Dash out of the lane."
+        },
+        {
+          "pattern": "volley",
+          "name": "Smile Volley",
+          "damage": 14,
+          "cooldown": 8,
+          "count": 7,
+          "text": "7 embers in a curved fan. The middle gap is the widest."
+        }
+      ],
+      "questionPool": {
+        "unit": "options",
+        "chapters": "all"
+      },
+      "rewards": {
+        "firstWinCoins": 250,
+        "repeatCoins": 18,
+        "xp": 230,
+        "item": null
+      }
+    },
+    {
+      "id": "boss-w4-margin-caller",
+      "name": "The Margin Caller",
+      "title": "He Always Calls Back",
+      "world": 4,
+      "order": 1,
+      "unlock": {
+        "unit": "futures",
+        "chapter": 2
+      },
+      "hp": 1250,
+      "speed": 1.3,
+      "lesson": "Futures settle gains and losses every day, and if your account drops below maintenance margin you must add money or be liquidated.",
+      "intro": "Your account is marked to market. Daily. By me. Hope you kept a buffer, because I'm about to call.",
+      "taunts": [
+        "Ring ring. It's your maintenance margin.",
+        "Ten times leverage! Ten times the feelings!",
+        "Small move, big dollars. Mostly big losses.",
+        "Can't post margin? I'll close you out myself."
+      ],
+      "defeat": "You sized small and kept a buffer. I have nobody left to call...",
+      "look": {
+        "body": "#2b2b3a",
+        "accent": "#e63946",
+        "eye": "#ffd23f",
+        "template": "suit",
+        "description": "A tall figure in a pinstriped coat with an old red rotary phone for a head, its cord coiled like a whip. Red numbers scroll across his chest like a ticker."
+      },
+      "mechanic": {
+        "type": "settlement",
+        "value": 15,
+        "text": "Daily settlement: every 15 seconds he marks you to market. If your HP is under 25%, he makes a Margin Call: a question opens at once. Right: you post margin and heal 10 HP. Wrong: lose a pip and take 10 damage."
+      },
+      "attacks": [
+        {
+          "pattern": "slam",
+          "name": "Leverage Slam",
+          "damage": 30,
+          "cooldown": 16,
+          "text": "A 10x hit with a long, loud wind-up and a huge red circle. Always dodge this one."
+        },
+        {
+          "pattern": "charge",
+          "name": "Gap Open",
+          "damage": 20,
+          "cooldown": 20,
+          "text": "The phone rings, he vanishes and lunges from the edge. Dash the moment you hear the ring."
+        },
+        {
+          "pattern": "wall",
+          "name": "Liquidation Lock",
+          "damage": 18,
+          "cooldown": 13,
+          "text": "Red-tape walls close into a box around you. Dash out before it seals."
+        },
+        {
+          "pattern": "volley",
+          "name": "Mark-to-Market",
+          "damage": 16,
+          "cooldown": 6.5,
+          "count": 7,
+          "text": "7 red numbers in a fan. Stand in a gap or circle around him."
+        }
+      ],
+      "questionPool": {
+        "unit": "futures",
+        "chapters": [
+          1,
+          2
+        ]
+      },
+      "rewards": {
+        "firstWinCoins": 175,
+        "repeatCoins": 20,
+        "xp": 250,
+        "item": "hedgers-vest"
+      }
+    },
+    {
+      "id": "boss-w4-black-swan",
+      "name": "The Black Swan",
+      "title": "The Event Nobody Priced",
+      "world": 4,
+      "order": 2,
+      "unlock": {
+        "unit": "futures",
+        "chapter": "all"
+      },
+      "hp": 1400,
+      "speed": 1.5,
+      "lesson": "Extreme events happen more often than neat models expect, so hedges and position sizes should assume the worst day will eventually come.",
+      "intro": "Every model said I was impossible. Every model was wrong. Let's see how you're sized for the unthinkable.",
+      "taunts": [
+        "A once-in-a-century move. Third one this decade.",
+        "Your stop gapped. Sorry about that.",
+        "Fat tails. Very fat. Extremely fat.",
+        "Hedged? Good. Sized small? Better."
+      ],
+      "defeat": "You prepared for me without knowing when I'd come. That's the only way anyone beats me.",
+      "look": {
+        "body": "#121212",
+        "accent": "#7b2cbf",
+        "eye": "#ff2e63",
+        "template": "beast",
+        "description": "A sleek black swan with purple-tipped wings and glowing pink eyes. Its long neck curves like a bell curve with a fat tail trailing behind."
+      },
+      "mechanic": {
+        "type": "enrage_below",
+        "value": 30,
+        "text": "Fat tails: below 30% HP the Swan gets 30% faster and its attacks come sooner. Keep some HP and a buffer in reserve for the ending."
+      },
+      "attacks": [
+        {
+          "pattern": "slam",
+          "name": "Tail Event",
+          "damage": 30,
+          "cooldown": 18,
+          "text": "Rare and huge: the screen darkens and a giant shadow marks the hit. You get 1.5 seconds. This is what damage caps are for."
+        },
+        {
+          "pattern": "wall",
+          "name": "Gap Down",
+          "damage": 20,
+          "cooldown": 11,
+          "text": "A wall of black feathers drops across the arena with one gap. Find it fast."
+        },
+        {
+          "pattern": "rain",
+          "name": "Feather Storm",
+          "damage": 16,
+          "cooldown": 8.5,
+          "count": 16,
+          "text": "Feathers fall on marked spots. Weave through."
+        },
+        {
+          "pattern": "homing",
+          "name": "Contagion",
+          "damage": 18,
+          "cooldown": 12,
+          "count": 3,
+          "text": "3 dark orbs chase you. Lead them into walls or shoot them before they converge."
+        }
+      ],
+      "questionPool": {
+        "unit": "futures",
+        "chapters": "all"
+      },
+      "rewards": {
+        "firstWinCoins": 300,
+        "repeatCoins": 25,
+        "xp": 280,
+        "item": null
+      }
+    }
+  ]
+}

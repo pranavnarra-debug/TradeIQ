@@ -56,11 +56,11 @@ const UI = (() => {
     return { el: overlay.querySelector('.modal-content'), close };
   }
 
-  function confirm({ title, message, confirmText = 'Confirm', danger = false }) {
+  function confirm({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', danger = false }) {
     return new Promise((resolve) => {
       let answered = false;
-      const m = modal(`<h3>${title}</h3><p class="muted">${message}</p>
-        <div class="modal-actions"><button class="btn" data-no>Cancel</button>
+      const m = modal(`<h3 class="confirm-title">${title}</h3><p class="muted">${message}</p>
+        <div class="modal-actions"><button class="btn" data-no>${cancelText}</button>
         <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-yes>${confirmText}</button></div>`,
       { onClose: () => { if (!answered) resolve(false); } });
       m.el.querySelector('[data-no]').onclick = () => { answered = true; m.close(); resolve(false); };
@@ -83,6 +83,10 @@ const UI = (() => {
     el.className = `cameo speech mood-${mood}`;
     el.setAttribute('aria-live', 'polite');
     el.innerHTML = `${Sprites.character(who, 88)}<div class="bubble"><span class="who">${escapeHtml(Sprites.NAMES[who])}</span>${escapeHtml(say)}</div>`;
+    // In the lesson/exam player the fixed footer holds the feedback text and
+    // the main button; sit the cameo on top of it instead of covering it.
+    const foot = document.querySelector('.player-foot');
+    if (foot) el.style.bottom = `${Math.round(foot.getBoundingClientRect().height) + 8}px`;
     document.body.appendChild(el);
     cameoTimer = setTimeout(() => {
       el.classList.add('out');
@@ -187,9 +191,9 @@ const UI = (() => {
    * Renders a search box with type-ahead into `el`. Calls onPick(symbol)
    * when the user chooses a ticker. Returns { set(symbol) }.
    */
-  function tickerPicker(el, { value = 'AAPL', onPick }) {
+  function tickerPicker(el, { value = 'AAPL', onPick, label = 'Ticker' }) {
     el.classList.add('ticker-picker');
-    el.innerHTML = `<div class="tp-box"><input class="input tp-input" value="${escapeHtml(value)}" placeholder="Search any stock or ETF" autocomplete="off" spellcheck="false" aria-label="Search stocks" />
+    el.innerHTML = `${label ? `<span class="px-label tp-label" aria-hidden="true">${escapeHtml(label)}</span>` : ''}<div class="tp-box"><input class="input tp-input" value="${escapeHtml(value)}" placeholder="Search any stock or ETF" autocomplete="off" spellcheck="false" aria-label="Search stocks" />
       <div class="tp-list" hidden role="listbox"></div></div>
       <div class="tp-chips">${POPULAR.map((t) => `<button type="button" class="tp-chip" data-sym="${t}">${t}</button>`).join('')}</div>`;
     const input = el.querySelector('.tp-input');

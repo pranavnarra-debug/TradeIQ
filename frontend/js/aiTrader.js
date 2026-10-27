@@ -79,12 +79,12 @@ const AiTraderSection = (() => {
 
     content.innerHTML = `
       <div class="controls-row">
-        <select class="input" id="ai-strategy-select">${strategyOptionsHtml()}</select>
         <div id="ai-ticker-select-picker"></div>
+        <label class="control-field"><span class="px-label">Strategy</span><select class="input" id="ai-strategy-select">${strategyOptionsHtml()}</select></label>
         <button class="btn btn-green ai-toggle-btn" id="ai-toggle-btn">&#9654; Start Bolt</button>
         <span class="countdown-indicator" id="ai-countdown"></span>
       </div>
-      <div class="muted" id="ai-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
+      <div class="muted style-note" id="ai-style-note"></div>
 
       <div class="trading-layout">
         <div class="card">
@@ -113,9 +113,7 @@ const AiTraderSection = (() => {
               <span class="muted">Position</span>
               <span id="ai-position-status">FLAT</span>
             </div>
-            <div class="risk-reward-row" id="ai-risk-reward">
-              Stop: — &nbsp;|&nbsp; Target: — &nbsp;|&nbsp; R:R —
-            </div>
+            <div class="risk-reward-row" id="ai-risk-reward">${riskRewardHtml()}</div>
           </div>
 
           <div class="card" id="ai-portfolio-summary">
@@ -127,7 +125,7 @@ const AiTraderSection = (() => {
 
       <div class="card section-spacer">
         <div class="card-title">Bolt's trade log</div>
-        <div style="max-height: 320px; overflow-y: auto;">
+        <div class="table-scroll" style="max-height: 320px; overflow-y: auto;">
           <table>
             <thead><tr><th>Time</th><th>Ticker</th><th>Strategy</th><th>Action</th><th>Price</th><th>Qty</th><th>Reasoning</th><th>P&L</th></tr></thead>
             <tbody id="ai-trade-log-body"><tr><td colspan="8" class="empty-state">No trades yet</td></tr></tbody>
@@ -166,6 +164,15 @@ const AiTraderSection = (() => {
     document.getElementById('ai-toggle-btn').addEventListener('click', toggleAi);
 
     await Promise.all([loadChart(), refreshSignal(), loadPortfolioSummary(), loadTradeLog()]);
+    // Router calls this when you leave the page: Bolt stops when you stop watching.
+    return () => {
+      if (state.running) {
+        state.running = false;
+        stopPolling();
+      }
+      ChartHelpers.destroyIfExists(state.chartInstance);
+      state.chartInstance = null;
+    };
   }
 
   async function loadChart() {
@@ -246,8 +253,7 @@ const AiTraderSection = (() => {
       renderConfidence(result.confidence);
       renderRulesChecklist(result.rules);
       document.getElementById('ai-reasoning-box').textContent = result.reasoning;
-      document.getElementById('ai-risk-reward').innerHTML =
-        `Stop: <strong>${fmtMoney(result.stopLoss)}</strong> &nbsp;|&nbsp; Target: <strong>${fmtMoney(result.takeProfit)}</strong> &nbsp;|&nbsp; R:R <strong>1:${result.riskReward ?? '—'}</strong>`;
+      document.getElementById('ai-risk-reward').innerHTML = riskRewardHtml(result);
 
       if (state.running) {
         await maybeAutoTrade(result);
@@ -255,6 +261,12 @@ const AiTraderSection = (() => {
     } catch (err) {
       console.error('Failed to refresh signal:', err);
     }
+  }
+
+  function riskRewardHtml(r = {}) {
+    return `<span><small>Stop</small><strong>${fmtMoney(r.stopLoss)}</strong></span>
+      <span><small>Target</small><strong>${fmtMoney(r.takeProfit)}</strong></span>
+      <span title="Reward compared to risk"><small>Risk : reward</small><strong>${r.riskReward != null ? `1 : ${r.riskReward}` : '—'}</strong></span>`;
   }
 
   async function maybeAutoTrade(result) {
@@ -306,7 +318,7 @@ const AiTraderSection = (() => {
       if (!el) return;
       el.innerHTML = `
         <div class="card-title">Bolt's portfolio (simulated)</div>
-        <div class="stats-bar" style="padding: 0; flex-direction: column; gap: 10px;">
+        <div class="stat-list">
           <div class="flex-between"><span class="muted">Starting Capital</span><strong>${fmtMoney(stats.startingCapital)}</strong></div>
           <div class="flex-between"><span class="muted">Equity</span><strong>${fmtMoney(stats.equity)}</strong></div>
           <div class="flex-between"><span class="muted">Cash</span><strong>${fmtMoney(stats.cash)}</strong></div>
@@ -354,7 +366,7 @@ const AiTraderSection = (() => {
     state.running = !state.running;
     const btn = document.getElementById('ai-toggle-btn');
     if (state.running) {
-      btn.className = 'btn btn-red ai-toggle-btn';
+      btn.className = 'btn btn-danger ai-toggle-btn';
       btn.innerHTML = '&#9632; Stop Bolt';
       startPolling();
     } else {

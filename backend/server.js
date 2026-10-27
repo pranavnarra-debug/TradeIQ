@@ -21,6 +21,8 @@ import lessonsRoutes from './routes/lessons.js';
 import adminRoutes from './routes/admin.js';
 import emailRoutes from './routes/email.js';
 import gameRoutes from './routes/game.js';
+import battleRoutes from './routes/battles.js';
+import questRoutes from './routes/quests.js';
 import { startMarketCacheJobs } from './jobs/marketCache.js';
 import { startDataRetentionJobs } from './jobs/dataRetention.js';
 import { startEmailJobs } from './jobs/emailJobs.js';
@@ -109,6 +111,8 @@ app.use('/api/lessons', lessonsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/game', gameRoutes);
+app.use('/api/battles', battleRoutes);
+app.use('/api/quests', questRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {

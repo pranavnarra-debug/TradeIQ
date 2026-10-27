@@ -37,6 +37,7 @@ const Hideout = (() => {
 
   function apply(next) {
     st = next;
+    App.setHero(st.appearance, equippedItems());
     Session.setUser({ ...Session.user, coins: st.coins });
     draw();
   }

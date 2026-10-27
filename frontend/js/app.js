@@ -10,6 +10,7 @@ const App = (() => {
   let portfolios = [];
   let currentCleanup = null;
   let site = { name: 'TradeIQ', contactEmail: '' };
+  const DEFAULT_TITLE = 'TradeIQ — Learn money and markets like a game';
 
   const ROUTES = [
     { path: /^\/$/, name: 'home', render: () => Landing.render() },
@@ -21,6 +22,8 @@ const App = (() => {
     { path: /^\/research\/?$/, name: 'research', auth: true, legacy: true, render: () => ResearchSection.render() },
     { path: /^\/me\/?$/, name: 'me', auth: true, render: () => Profile.render() },
     { path: /^\/hideout\/?$/, name: 'hideout', auth: true, render: () => Hideout.render() },
+    { path: /^\/arena\/?$/, name: 'arena', auth: true, render: () => Arena.render() },
+    { path: /^\/battle\/([a-z0-9-]+)$/, name: 'battle', auth: true, render: (m) => Arena.fight(m[1]) },
     { path: /^\/ranks\/?$/, name: 'ranks', auth: true, render: () => Ranks.render() },
     { path: /^\/settings\/?$/, name: 'settings', auth: true, render: () => Settings.render() },
     { path: /^\/admin\/?$/, name: 'admin', auth: true, admin: true, legacy: true, render: () => AdminSection.render() },
@@ -39,6 +42,7 @@ const App = (() => {
   const NAV = [
     { href: '/learn', label: 'Learn', icon: 'map', name: 'learn' },
     { href: '/hideout', label: 'Hideout', icon: 'house', name: 'hideout' },
+    { href: '/arena', label: 'Arena', icon: 'target', name: 'arena' },
     { href: '/trade', label: 'Trade', icon: 'chart', name: 'trade' },
     { href: '/bot', label: 'Bot', icon: 'bolt', name: 'bot' },
     { href: '/research', label: 'Research', icon: 'magnifier', name: 'research' },
@@ -73,10 +77,15 @@ const App = (() => {
     const href = a.getAttribute('href');
     if (!href.startsWith('/') || href.startsWith('/api/') || a.target || a.hasAttribute('download') || a.dataset.external != null) return;
     if (href.startsWith('/#')) {
-      if (location.pathname === '/') {
-        e.preventDefault();
-        document.getElementById(href.slice(2))?.scrollIntoView({ behavior: 'smooth' });
+      e.preventDefault();
+      const id = href.slice(2);
+      if (location.pathname !== '/') {
+        // Logged-in visitors get redirected from "/" to the map, so these
+        // landing-page anchors only make sense for logged-out visitors.
+        if (Session.isLoggedIn()) { go('/learn'); return; }
+        go('/');
       }
+      setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), location.pathname === '/' ? 0 : 60);
       return;
     }
     e.preventDefault();
@@ -103,6 +112,7 @@ const App = (() => {
     }
     if (r.admin && Session.user?.role !== 'admin') return go('/learn', { replace: true });
 
+    document.title = DEFAULT_TITLE;
     renderChrome(Boolean(r.focus), r.name);
     window.scrollTo(0, 0);
     if (socket && socket.connected) socket.emit('page_change', r.name);
@@ -129,10 +139,12 @@ const App = (() => {
   }
 
   function renderNotFound() {
+    document.title = `Page not found · ${DEFAULT_TITLE.split(' — ')[0]}`;
     renderChrome(false);
+    const home = Session.isLoggedIn() ? ['/learn', 'Back to the map'] : ['/', 'Go home'];
     document.getElementById('view').innerHTML = `<div class="page wrap"><div class="empty-state">${Sprites.character('hoot', 110)}
       <h2>404: page not found</h2><p>Hoot looked everywhere. This page doesn't exist.</p>
-      <a class="btn btn-primary" href="/">Go home</a></div></div>`;
+      <a class="btn btn-primary" href="${home[0]}">${home[1]}</a></div></div>`;
   }
 
   function showNotice(n) {
@@ -176,7 +188,30 @@ const App = (() => {
     tab.innerHTML = u ? nav.slice(0, 4).concat([{ href: '/me', label: 'Me', icon: 'person', name: 'me' }])
       .map((n) => `<a href="${n.href}" class="${n.name === active ? 'active' : ''}">${Sprites.icon(n.icon, 24)}${n.label}</a>`).join('') : '';
 
-    if (!foot.innerHTML) foot.innerHTML = footerHtml();
+    const authKey = String(Session.isLoggedIn());
+    if (!foot.innerHTML || foot.dataset.auth !== authKey) {
+      foot.innerHTML = footerHtml();
+      foot.dataset.auth = authKey;
+    }
+  }
+
+  // The account button shows the player's Hideout avatar (head crop), loaded once per session.
+  let hero = { svg: null, loading: false };
+  function heroFace(u) {
+    if (!hero.svg && !hero.loading && typeof Avatar !== 'undefined') loadHero();
+    return hero.svg || Sprites.character(u.avatar, 34);
+  }
+  async function loadHero() {
+    hero.loading = true;
+    try {
+      const [st, cat] = await Promise.all([api.get('/game/state'), api.get('/game/catalog')]);
+      setHero(st.appearance, Object.values(st.equipment).map((id) => cat.items.find((i) => i.id === id)).filter(Boolean));
+    } catch { /* keep the mascot fallback */ } finally { hero.loading = false; }
+  }
+  function setHero(appearance, gear) {
+    hero.svg = Avatar.render(appearance, gear, { size: 34, title: 'Your avatar', viewBox: '4 0 16 16' });
+    const btn = document.getElementById('avatar-btn');
+    if (btn) btn.innerHTML = hero.svg;
   }
 
   function hudHtml(u) {
@@ -187,29 +222,42 @@ const App = (() => {
       <a class="hud-pill" href="/me" title="Level ${u.level.level}: ${escapeHtml(u.level.title)}">${Sprites.icon('star', 20)}<span>${u.xp.toLocaleString()}</span></a>
       <a class="hud-pill coins" href="/me#shop" title="Coins">${Sprites.icon('coin', 20)}<span>${u.coins}</span></a>
       <div style="position:relative">
-        <button class="avatar-btn" id="avatar-btn" aria-label="Account menu">${Sprites.character(u.avatar, 34)}</button>
+        <button class="avatar-btn" id="avatar-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">${heroFace(u)}</button>
       </div>`;
   }
 
   function toggleMenu() {
+    const btn = document.getElementById('avatar-btn');
     const existing = document.querySelector('.menu');
-    if (existing) { existing.remove(); return; }
+    if (existing) { existing.remove(); btn?.setAttribute('aria-expanded', 'false'); return; }
     const u = Session.user;
     const m = document.createElement('div');
     m.className = 'menu';
     m.innerHTML = `<div class="menu-head"><b>${escapeHtml(u.username)}</b><br><small class="muted">Level ${u.level.level} · ${escapeHtml(u.level.title)}</small></div>
       <a href="/me">${Sprites.icon('person', 18)} Profile & badges</a>
       <a href="/hideout">${Sprites.icon('house', 18)} Hideout & gear</a>
+      <a href="/bot">${Sprites.icon('bolt', 18)} Bolt the Bot</a>
       <a href="/research">${Sprites.icon('magnifier', 18)} Research</a>
+      <a href="/ranks">${Sprites.icon('trophy', 18)} Ranks</a>
       <a href="/settings">${Sprites.icon('gear', 18)} Settings</a>
       ${u.role === 'admin' ? `<a href="/admin">${Sprites.icon('shield', 18)} Admin</a>` : ''}
       <button data-logout>${Sprites.icon('door', 18)} Log out</button>`;
-    document.getElementById('avatar-btn').parentElement.appendChild(m);
-    m.querySelector('[data-logout]').onclick = logout;
-    m.addEventListener('click', (e) => { if (e.target.closest('a')) m.remove(); });
-    setTimeout(() => document.addEventListener('click', function close(e) {
-      if (!m.contains(e.target)) { m.remove(); document.removeEventListener('click', close); }
-    }), 0);
+    btn.parentElement.appendChild(m);
+    btn.setAttribute('aria-expanded', 'true');
+    const closeMenu = () => {
+      m.remove();
+      btn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+    function onDoc(e) { if (!m.contains(e.target)) closeMenu(); }
+    function onKey(e) { if (e.key === 'Escape') { closeMenu(); btn.focus(); } }
+    m.querySelector('[data-logout]').onclick = () => { closeMenu(); logout(); };
+    m.addEventListener('click', (e) => { if (e.target.closest('a')) closeMenu(); });
+    setTimeout(() => {
+      document.addEventListener('click', onDoc);
+      document.addEventListener('keydown', onKey);
+    }, 0);
   }
 
   function footerHtml() {
@@ -217,7 +265,9 @@ const App = (() => {
       <div class="footer-grid">
         <div><a class="brand" href="/">${Sprites.character('chip', 32)} Trade<b>IQ</b></a>
           <p class="muted" style="margin-top:10px;max-width:360px">Learn money, markets and trading like it's a game. Practice with fake money before you ever risk real money.</p></div>
-        <div><h4>Explore</h4><a href="/learn">Course map</a><a href="/#how">How it works</a><a href="/#faq">FAQ</a></div>
+        <div><h4>Explore</h4>${Session.isLoggedIn()
+    ? '<a href="/learn">Course map</a><a href="/trade">Trading desk</a><a href="/ranks">Ranks</a>'
+    : '<a href="/learn">Course map</a><a href="/#how">How it works</a><a href="/#faq">FAQ</a>'}</div>
         <div><h4>The fine print</h4><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/disclaimer">Disclaimer</a>
           ${site.contactEmail ? `<a href="mailto:${escapeHtml(site.contactEmail)}" data-external>Contact</a>` : ''}</div>
       </div>
@@ -262,6 +312,7 @@ const App = (() => {
 
   async function logout() {
     try { await api.post('/auth/logout'); } catch { /* best effort */ }
+    hero = { svg: null, loading: false };
     if (socket) socket.disconnect();
     socket = null;
     portfolios = [];
@@ -294,7 +345,12 @@ const App = (() => {
     route();
   }
 
+  function hideChrome() {
+    ['topbar', 'footer', 'tabbar'].forEach((id) => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+  }
+
   return {
+    hideChrome, setHero,
     init, go, route, onLoggedIn, logout, refreshHud, goToSection,
     getAiPortfolioId: () => portfolioId('ai'),
     getManualPortfolioId: () => portfolioId('manual'),

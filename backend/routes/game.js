@@ -25,7 +25,7 @@ router.get('/catalog', (req, res) => {
 router.use(authenticate);
 
 /** Gives every player the starter items once, and equips them into empty slots. */
-async function ensureStarterKit(db, userId) {
+export async function ensureStarterKit(db, userId) {
   // Items retired from the catalog no longer occupy a slot.
   await db.query('DELETE FROM user_equipment WHERE user_id = $1 AND NOT (item_id = ANY($2::text[]))', [userId, [...ITEMS.keys()]]);
   if (!STARTER_ITEMS.length) return;

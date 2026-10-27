@@ -6,26 +6,55 @@
 const AuthModal = (() => {
   let ctx = { next: null, reason: null };
   let m = null;
+  let afterClose = null;
 
   function field(name, label, type = 'text', extra = '') {
     return `<label class="field" data-field="${name}"><span>${label}</span><input name="${name}" type="${type}" ${extra} /><small class="field-error" hidden></small></label>`;
   }
 
+  function clearError(f) {
+    f.classList.remove('has-error');
+    const e = f.querySelector('.field-error');
+    if (e) e.hidden = true;
+  }
+
   function showErrors(form, err) {
-    form.querySelectorAll('.field').forEach((f) => { f.classList.remove('has-error'); f.querySelector('.field-error').hidden = true; });
+    form.querySelectorAll('[data-field]').forEach(clearError);
     const box = form.querySelector('.form-error');
     box.hidden = true;
-    const f = err.field && form.querySelector(`.field[data-field="${err.field}"]`);
+    // Field-level errors sit next to the field (text inputs and checkbox lines).
+    const f = err.field && form.querySelector(`[data-field="${err.field}"]`);
     if (f) {
       f.classList.add('has-error');
-      const e = f.querySelector('.field-error');
+      let e = f.querySelector('.field-error');
+      if (!e) {
+        e = document.createElement('small');
+        e.className = 'field-error';
+        f.appendChild(e);
+      }
       e.textContent = err.message;
       e.hidden = false;
       f.querySelector('input')?.focus();
+      f.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } else {
       box.textContent = err.message;
       box.hidden = false;
+      box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
+  }
+
+  // Once the user edits a field, its old error no longer applies.
+  function clearErrorsOnEdit(form) {
+    form.addEventListener('input', (e) => {
+      const f = e.target.closest('[data-field]');
+      if (f) clearError(f);
+      const box = form.querySelector('.form-error');
+      if (box) box.hidden = true;
+    });
+    form.addEventListener('change', (e) => {
+      const f = e.target.closest('[data-field]');
+      if (f) clearError(f);
+    });
   }
 
   function header(mode) {
@@ -43,9 +72,17 @@ const AuthModal = (() => {
   }
 
   function open(mode = 'signup', opts = {}) {
-    ctx = { next: opts.next || null, reason: opts.reason || null };
     if (m) m.close();
-    m = UI.modal('<div id="auth-body"></div>', { onClose: () => { m = null; } });
+    ctx = { next: opts.next || null, reason: opts.reason || null };
+    afterClose = null;
+    m = UI.modal('<div id="auth-body"></div>', {
+      onClose: () => {
+        m = null;
+        const fn = afterClose;
+        afterClose = null;
+        if (fn) fn();
+      },
+    });
     show(mode);
   }
 
@@ -83,6 +120,7 @@ const AuthModal = (() => {
       <p style="text-align:center;margin:16px 0 0;font-size:15px">Already have one? <a href="#" data-to="login">Log in</a></p>`;
 
     const form = body.querySelector('form');
+    clearErrorsOnEdit(form);
     body.querySelector('[data-to="login"]').onclick = (e) => { e.preventDefault(); show('login'); };
 
     let t = null;
@@ -167,13 +205,20 @@ const AuthModal = (() => {
     const ok = body.querySelector('#rc-ok');
     const go = body.querySelector('#rc-go');
     ok.onchange = () => { go.disabled = !ok.checked; };
-    go.onclick = () => {
-      const next = ctx.next;
-      m.close();
+    const next = ctx.next;
+    let entered = false;
+    const enter = () => {
+      if (entered) return;
+      entered = true;
       UI.confetti();
       App.onLoggedIn(next);
       setTimeout(() => UI.cameo('chip', `Welcome, ${Session.user.username}! Let's get you your first 50 XP.`, 'wow', 4200), 500);
     };
+    // The account already exists at this point. If the modal gets dismissed
+    // (X, Esc, backdrop) still take the user into the app instead of leaving
+    // them on the logged-out landing page with a half-updated top bar.
+    afterClose = enter;
+    go.onclick = () => { m.close(); };
   }
 
   // ---------- Log in ----------
@@ -188,6 +233,7 @@ const AuthModal = (() => {
       </form>
       <p style="text-align:center;margin:16px 0 0;font-size:15px"><a href="#" data-to="forgot">Forgot password?</a> · <a href="#" data-to="signup">Create an account</a></p>`;
     const form = body.querySelector('form');
+    clearErrorsOnEdit(form);
     body.querySelector('[data-to="forgot"]').onclick = (e) => { e.preventDefault(); show('forgot'); };
     body.querySelector('[data-to="signup"]').onclick = (e) => { e.preventDefault(); show('signup'); };
     form.addEventListener('submit', async (e) => {
@@ -233,6 +279,7 @@ const AuthModal = (() => {
         ${field('username', 'Username or email', 'text', 'autocapitalize="off"')}
         <button class="btn btn-primary btn-block" type="submit">Send reset link</button></form>`;
       const form = pane.querySelector('form');
+      clearErrorsOnEdit(form);
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = form.querySelector('button');
@@ -256,6 +303,7 @@ const AuthModal = (() => {
       ${field('password', 'New password', 'password', 'autocomplete="new-password"')}
       <button class="btn btn-primary btn-block" type="submit">Reset password</button></form>`;
     const form = pane.querySelector('form');
+    clearErrorsOnEdit(form);
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = form.querySelector('button');

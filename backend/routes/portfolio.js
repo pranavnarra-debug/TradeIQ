@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth.js';
 import marketData from '../services/marketData.js';
 import { cleanSymbol, clampText } from '../services/validate.js';
 import { checkAchievementsSafe } from '../services/progress.js';
+import { logActivity } from '../services/activity.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -89,6 +90,10 @@ router.get('/', async (req, res) => {
 });
 
 const MAX_QTY = 1_000_000;
+const DEFAULT_NOTES = new Set(['Manual trade from My Trading Desk', 'Closed position']);
+function isJournalNote(note) {
+  return Boolean(note) && note.trim().length >= 15 && !DEFAULT_NOTES.has(note.trim());
+}
 const STRATEGY_RE = /^[a-z_]{1,50}$/;
 
 function parseId(v) {
@@ -155,7 +160,7 @@ router.post('/:id/trade', async (req, res) => {
           [portfolio.id, upperSymbol, quantity, executionPrice, strategy ?? null]
         );
         await db.query('UPDATE portfolios SET cash = cash - $1 WHERE id = $2', [cost, portfolio.id]);
-        return { ok: true };
+        return { ok: true, type: portfolio.portfolio_type };
       }
 
       const open = await db.query(
@@ -182,11 +187,13 @@ router.post('/:id/trade', async (req, res) => {
         [portfolio.id, upperSymbol, quantity, executionPrice, orderType, strategy ?? null, cleanReasoning, realized]
       );
       await db.query('UPDATE portfolios SET cash = cash + $1 WHERE id = $2', [executionPrice * quantity, portfolio.id]);
-      return { ok: true };
+      return { ok: true, type: portfolio.portfolio_type };
     });
 
     if (outcome.error) return res.status(outcome.status).json({ error: outcome.error });
 
+    // A real journal note (not the desk's default text) counts as a journaled trade.
+    if (outcome.type === 'manual' && isJournalNote(cleanReasoning)) await logActivity(null, req.user.userId, 'trade_journaled', upperSymbol);
     const newAchievements = await checkAchievementsSafe(req.user.userId);
     const stats = await computePortfolioStats(await ownsPortfolio(req.user.userId, portfolioId));
     res.json({ ...stats, newAchievements: newAchievements.map(({ id, name, desc, sprite }) => ({ id, name, desc, sprite })) });
@@ -331,6 +338,7 @@ router.post('/analysis', async (req, res) => {
       ]
     );
 
+    await logActivity(null, req.user.userId, 'analysis', sym);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('Save analysis error:', err);

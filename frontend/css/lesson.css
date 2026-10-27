@@ -211,6 +211,53 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 
 .peek-row span:nth-child(2) { flex: 1; }
 .peek-row small { display: block; color: var(--muted); font-size: 13px; line-height: 1.35; }
 
+/* ============================================================
+   Polish pass (UX audit)
+   ============================================================ */
+/* Flip cards: say they flip, and keep the term visible on the back. */
+.flip-front { flex-direction: column; gap: 8px; }
+.flip-hint { font-family: var(--font-px); font-size: 10px; font-weight: 400; text-transform: uppercase; color: var(--muted); }
+.flip-back { flex-direction: column; gap: 6px; overflow-y: auto; }
+.flip-back b { font-family: var(--font-px); font-size: 11px; font-weight: 400; text-transform: uppercase; color: var(--sun); }
+.flip:focus-visible { outline: none; }
+.flip:focus-visible .flip-front, .flip:focus-visible .flip-back { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+/* Match: number each matched pair so the two columns read correctly. */
+.match-btn { display: flex; align-items: center; gap: 8px; }
+.match-tag { flex-shrink: 0; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; background: var(--ink); color: var(--paper); font-family: var(--font-px); font-size: 11px; }
+.match-btn.is-right { opacity: 1; color: var(--ink-2); }
+
+/* Order: the correct answer as a real list. */
+.order-answer { margin-top: 14px; padding: 12px 16px; border: var(--b-thin); border-radius: 12px; background: var(--card); font-size: 15px; }
+.order-answer ol { margin: 6px 0 0; padding-left: 1.3em; }
+.order-answer li { margin: 2px 0; }
+.order-btns .btn { min-width: 36px; min-height: 36px; }
+
+/* True/false key hints. */
+.opt-btn.tf .opt-key { margin-right: 2px; }
+
+/* Wide diagrams scroll sideways on phones; say so. */
+.figure-hint { display: none; margin: 10px 0 0; color: var(--muted); font-size: 10px; }
+
+/* Footer bar: the Back slot keeps its space on desktop. */
+#p-back.is-hidden { visibility: hidden; }
+.foot-msg:empty { min-height: 0; }
+
+@media (max-width: 600px) {
+  .figure-hint { display: block; }
+  .figure { padding: 10px; }
+  .widget-box { padding: 16px; }
+  .w-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .w-stat.big { grid-column: 1 / -1; }
+  .foot-msg:empty { display: none; }
+  #p-back.is-hidden { display: none; }
+  .player-foot { padding-top: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .order-btns .btn { min-width: 40px; min-height: 40px; }
+  .order-list li { padding: 8px 10px; gap: 10px; }
+  .callout { padding: 18px; }
+  .flip { height: 160px; }
+}
+
 @media (max-width: 600px) {
   .seg-bar { gap: 2px; }
   .seg-bar span { height: 12px; border-radius: 3px; border-width: 1.5px; min-width: 0; }

@@ -10,6 +10,7 @@ import {
 } from '../content/index.js';
 import { awardXp, touchStreak, checkAchievements, levelFor, ACHIEVEMENTS } from '../services/progress.js';
 import { signExamToken, verifyExamToken } from '../services/tokens.js';
+import { logActivity } from '../services/activity.js';
 
 const router = express.Router();
 
@@ -119,7 +120,7 @@ router.post('/lesson/:lessonId/complete', async (req, res, next) => {
       if (!passed) return { xpGained: 0, coinsGained: 0, newAchievements: [], streak: null, before, after: before, firstTime: false };
 
       const prev = (await db.query(
-        'SELECT best_score, xp_awarded FROM lesson_completions WHERE user_id = $1 AND lesson_id = $2',
+        'SELECT best_score, xp_awarded, first_completed_at FROM lesson_completions WHERE user_id = $1 AND lesson_id = $2',
         [userId, entry.lesson.id]
       )).rows[0];
 
@@ -144,6 +145,11 @@ router.post('/lesson/:lessonId/complete', async (req, res, next) => {
           [userId, entry.lesson.id, score, xpGained]
         );
         await awardXp(db, userId, 'lesson_retry', entry.lesson.id, xpGained, coinsGained);
+      }
+      await logActivity(db, userId, 'lesson_pass', entry.lesson.id);
+      if (score === 100) await logActivity(db, userId, 'lesson_perfect', entry.lesson.id);
+      if (prev && Date.now() - new Date(prev.first_completed_at).getTime() >= 3 * 24 * 3600 * 1000) {
+        await logActivity(db, userId, 'lesson_review', entry.lesson.id);
       }
       const streak = await touchStreak(db, userId);
       const newAchievements = await checkAchievements(db, userId);

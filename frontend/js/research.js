@@ -29,23 +29,21 @@ const ResearchSection = (() => {
   async function render() {
     const content = document.getElementById('content-area');
     content.innerHTML = `
-      <div class="flex-row" style="margin-bottom: 18px;">
-        <input class="input" id="research-ticker-input" placeholder="Enter ticker (e.g. AAPL)" style="max-width: 220px;" />
-        <button class="btn btn-primary" id="research-go-btn">${Sprites.icon('magnifier', 18)} Research</button>
-        <span id="research-loading" style="display:none;"><span class="spinner"></span></span>
+      <div class="controls-row">
+        <div id="research-ticker-picker"></div>
+        <span id="research-loading" class="research-loading" style="display:none;"><span class="spinner"></span> Crunching the numbers...</span>
       </div>
-      <div id="research-results"></div>
+      <div id="research-results">
+        <div class="empty-state">${Sprites.character('hoot', 72)}<p>Search any US stock or ETF, or tap one of the popular tickers above.<br>Hoot will pull up the technicals, a CANSLIM checklist and recent news.</p></div>
+      </div>
     `;
 
-    document.getElementById('research-go-btn').addEventListener('click', handleResearch);
-    document.getElementById('research-ticker-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleResearch();
-    });
+    UI.tickerPicker(document.getElementById('research-ticker-picker'), { value: '', onPick: handleResearch });
+    document.querySelector('#research-ticker-picker .tp-chip.on')?.classList.remove('on');
   }
 
-  async function handleResearch() {
-    const input = document.getElementById('research-ticker-input');
-    const symbol = input.value.trim().toUpperCase();
+  async function handleResearch(sym) {
+    const symbol = String(sym || '').trim().toUpperCase();
     if (!symbol) return;
 
     state.symbol = symbol;
@@ -112,41 +110,42 @@ const ResearchSection = (() => {
 
           <div class="card" style="margin-bottom: 16px;">
             <div class="card-title">Technical Snapshot</div>
-            <table>
+            <div class="table-scroll"><table class="kv-table">
               <tbody>
                 <tr><td>Current Price</td><td>${fmtMoney(t.price)}</td><td>52-Week High</td><td>${fmtMoney(t.high52)}</td></tr>
                 <tr><td>52-Week Low</td><td>${fmtMoney(t.low52)}</td><td>RSI(14)</td><td>${t.rsi != null ? fmt(t.rsi, 1) : '—'}</td></tr>
                 <tr><td>EMA-9</td><td>${fmtMoney(t.ema9)}</td><td>EMA-21</td><td>${fmtMoney(t.ema21)}</td></tr>
                 <tr><td>EMA-50</td><td>${fmtMoney(t.ema50)}</td><td>BB Position</td><td>${t.bbPosition}</td></tr>
                 <tr><td>VWAP</td><td>${fmtMoney(t.vwap)}</td><td>Relative Volume</td><td>${t.relativeVolume != null ? fmt(t.relativeVolume) + 'x' : '—'}</td></tr>
-                <tr><td>Market State</td><td colspan="3"><span class="market-badge ${t.marketState === 'REGULAR' ? 'open' : 'closed'}">${t.marketState}</span></td></tr>
+                <tr><td>Market State</td><td colspan="3"><span class="market-badge ${t.marketState === 'REGULAR' ? 'open' : 'closed'}">${t.marketState === 'REGULAR' ? 'Open' : escapeHtml(String(t.marketState || '—').toLowerCase())}</span></td></tr>
               </tbody>
-            </table>
+            </table></div>
           </div>
 
           <div class="card" style="margin-bottom: 16px;">
             <div class="card-title">CANSLIM Scorecard — ${a.canslim.score}/${a.canslim.total}</div>
-            <table class="canslim-table">
+            <div class="table-scroll"><table class="canslim-table">
               <thead><tr><th>Criterion</th><th>Status</th><th>Justification</th></tr></thead>
               <tbody>
                 ${a.canslim.rows.map((r) => `
                   <tr class="${canslimRowClass(r)}">
                     <td><strong>${escapeHtml(r.letter)}</strong> — ${escapeHtml(r.name)}</td>
-                    <td>${r.pass ? '✅ Pass' : '❌ Fail'}</td>
+                    <td class="pf ${r.pass ? 'up' : 'down'}">${Sprites.icon(r.pass ? 'check' : 'cross', 14)} ${r.pass ? 'Pass' : 'Fail'}</td>
                     <td class="muted">${escapeHtml(r.justification)}</td>
                   </tr>
                 `).join('')}
               </tbody>
-            </table>
+            </table></div>
           </div>
 
           <div class="grid-2" style="margin-bottom: 16px;">
             <div class="card">
               <div class="card-title">Momentum Score</div>
               <div class="momentum-gauge-wrap">
-                <div class="momentum-gauge" style="background: conic-gradient(${momentumColor(a.momentumScore)} ${a.momentumScore * 36}deg, var(--border) 0deg); color: ${momentumColor(a.momentumScore)};">
-                  ${a.momentumScore}
+                <div class="momentum-gauge" style="background: conic-gradient(${momentumColor(a.momentumScore)} ${a.momentumScore * 36}deg, var(--paper-2) 0deg); color: ${momentumColor(a.momentumScore)};">
+                  <span>${a.momentumScore}</span>
                 </div>
+                <div class="muted" style="font-size:13px;margin-top:8px">out of 10</div>
               </div>
             </div>
             <div class="card">
@@ -246,7 +245,8 @@ const ResearchSection = (() => {
     const canslimChecks = Array.from(document.querySelectorAll('input[name="canslim-check"]:checked')).map((cb) => cb.value);
 
     if (reasoning.length < 20) {
-      alert('Please write at least 20 characters of reasoning');
+      UI.toast(`Write at least 20 characters of reasoning (${20 - reasoning.length} to go).`, 'error');
+      document.getElementById('my-reasoning').focus();
       return;
     }
 
@@ -263,7 +263,7 @@ const ResearchSection = (() => {
       state.myAnalysis = { trendAssessment, supportLevel, resistanceLevel, canslimChecks, verdict, reasoning };
       renderComparison();
     } catch (err) {
-      alert(err.message || 'Failed to save analysis');
+      UI.toast(err.message || 'Could not save your analysis', 'error');
     }
   }
 
@@ -301,7 +301,7 @@ const ResearchSection = (() => {
     el.innerHTML = `
       <div class="card section-spacer">
         <div class="card-title">Comparison</div>
-        <table class="comparison-table">
+        <div class="table-scroll"><table class="comparison-table">
           <thead><tr><th>Dimension</th><th>Indicators</th><th>My Assessment</th><th>Agreement</th></tr></thead>
           <tbody>
             <tr><td>Trend</td><td>${escapeHtml(aiTrend)}</td><td>${escapeHtml(my.trendAssessment)}</td><td class="${trendCompare.cls}">${trendCompare.label}</td></tr>
@@ -309,7 +309,7 @@ const ResearchSection = (() => {
             <tr><td>Verdict</td><td>${escapeHtml(a.verdict.signal)}</td><td>${escapeHtml(my.verdict)}</td><td class="${verdictCompare.cls}">${verdictCompare.label}</td></tr>
             <tr><td>CANSLIM Score</td><td>${aiCanslimScore}/7</td><td>${myCanslimScore}/7</td><td class="${canslimCompare.cls}">${canslimCompare.label}</td></tr>
           </tbody>
-        </table>
+        </table></div>
         <div class="reasoning-box" style="margin-top: 14px;">
           <strong>Key Differences:</strong> ${differences.map(escapeHtml).join(' ')}
         </div>

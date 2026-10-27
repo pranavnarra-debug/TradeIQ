@@ -258,3 +258,61 @@
 .prose h3 { font-size: 19px; margin-top: 24px; }
 .prose li { margin-bottom: 6px; }
 .prose .note { background: var(--sun-l); border: var(--b-thin); border-radius: 12px; padding: 12px 16px; font-size: 15px; }
+
+/* ============================================================
+   Polish pass (UX audit)
+   ============================================================ */
+.page-head h1 { overflow-wrap: anywhere; }
+.avatar-btn[aria-expanded='true'] { background: var(--sun); }
+.menu a.active { background: var(--paper); }
+.tabbar a { min-height: 48px; justify-content: center; }
+.tabbar a:hover { color: var(--ink); }
+
+/* Recovery code: one line, even on a phone. */
+.code-box { white-space: nowrap; font-size: clamp(17px, 5.4vw, 28px); letter-spacing: 0.04em; padding: 16px 10px; overflow-x: auto; }
+
+/* Stat tiles: keep the icon and number on one baseline. */
+.stat-tile .num { display: flex; align-items: center; gap: 6px; }
+
+/* Badges: two columns on phones instead of one long list. */
+.ach-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+
+/* Settings: keep switches beside their label instead of dropping below. */
+.settings-row .txt { flex: 1 1 200px; min-width: 0; }
+.settings-row .txt small { display: block; margin-top: 2px; line-height: 1.4; }
+
+/* Ranks: "You" summary wraps cleanly. */
+.rank-summary { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
+
+@media (max-width: 860px) {
+  .tabbar a { font-size: 10.5px; }
+}
+
+@media (max-width: 720px) {
+  .footer-grid a { padding: 8px 0; }
+  .site-footer { margin-top: 56px; }
+}
+
+@media (max-width: 520px) {
+  /* Continue card: small sprite beside the title instead of a big block on top. */
+  .continue-card { padding: 18px; gap: 10px; }
+  .continue-card > .sprite { width: 64px; height: 64px; }
+  .continue-card h2 { font-size: 24px; }
+  .continue-card .btn-lg { width: 100%; }
+  .continue-card > div { width: 100%; }
+
+  /* Unit banner: sprite + title on one row, count tucked under. */
+  .unit-banner { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; padding: 16px; align-items: center; }
+  .unit-banner > .sprite { width: 52px; height: 52px; }
+  .unit-banner .unit-stats { grid-column: 1 / -1; display: flex; gap: 8px; align-items: baseline; text-align: left; margin: 4px 0 0; }
+  .unit-banner .unit-stats .mono { font-size: 18px; }
+  .unit-banner p { font-size: 14px; }
+
+  .stat-card { gap: 10px; }
+  .stat-tile { padding: 10px 12px; }
+  .stat-tile .num { font-size: 22px; }
+  .path { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
+  .node:nth-child(4n + 2), .node:nth-child(4n + 4) { transform: translateY(22px); }
+  .node:nth-child(4n + 3) { transform: none; }
+  .avatar-pick button { min-width: 56px; min-height: 56px; }
+}

@@ -71,8 +71,8 @@ const STREAK_BONUS = { 3: 15, 7: 40, 14: 60, 30: 150, 60: 250, 100: 500 };
 /** Grant XP (and optionally coins). `db` is a pg client inside a transaction, or the pool helper. */
 export async function awardXp(db, userId, source, ref, amount, coins = 0) {
   if (amount <= 0 && coins <= 0) return;
-  if (amount > 0) {
-    await db.query('INSERT INTO xp_events (user_id, source, ref, amount) VALUES ($1, $2, $3, $4)', [userId, source, ref, amount]);
+  if (amount > 0 || source === 'boss_repeat') {
+    await db.query('INSERT INTO xp_events (user_id, source, ref, amount) VALUES ($1, $2, $3, $4)', [userId, source, ref, Math.max(amount, 0)]);
   }
   await db.query('UPDATE users SET xp = xp + $1, coins = coins + $2 WHERE id = $3', [Math.max(amount, 0), Math.max(coins, 0), userId]);
 }
@@ -127,7 +127,7 @@ export async function checkAchievements(db, userId) {
          (SELECT ARRAY_AGG(unit_id) FROM unit_exams WHERE user_id = $1 AND passed) AS units,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id = $1)::int AS trades,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id
-            WHERE p.user_id = $1 AND p.portfolio_type = 'manual' AND LENGTH(t.reasoning) >= 15
+            WHERE p.user_id = $1 AND p.portfolio_type = 'manual' AND LENGTH(TRIM(t.reasoning)) >= 15
               AND t.reasoning NOT IN ('Manual trade from My Trading Desk', 'Closed position'))::int AS journaled,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id = $1 AND t.realized_pnl > 0)::int AS wins,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id = $1 AND t.realized_pnl < 0)::int AS losses,

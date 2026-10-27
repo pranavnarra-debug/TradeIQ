@@ -551,3 +551,73 @@ Turn of play (about 15 seconds): question appears → answer correctly (+1 pip, 
 8. **Cosmetics budget:** how many cosmetic items can art produce per world? The sim assumes about 1,200-2,500 coins' worth per world to absorb grinder coins.
 9. **Post-course economy:** after all four worlds, halve daily quest coins and switch to a cosmetic Mastery track. Agree?
 10. **PvP for minors:** friends-only by default for under-18s. Do we know users' ages (signup doesn't collect them today)?
+
+---
+
+## 13. v1 implementation notes
+
+_October 2026. `backend/content/game/bosses.json` and `backend/content/game/quests.json` are the live files. Where they differ from sections 6 and 7.4, the JSON wins for v1._
+
+### 13.1 The 10 bosses
+
+| # | Boss (id) | Unlocks after | HP | Mechanic | Teaches | First win |
+|---|---|---|---|---|---|---|
+| W1-1 | Inflato the Slow Leak (`boss-w1-inflato`) | Money ch 1 | 300 | regen 1 HP/s | Idle cash shrinks; out-learn inflation | 100 coins + Piggy Mallet |
+| W1-2 | Vex the Volatility Vulture (`boss-w1-vex-vulture`) | Money ch 3 | 450 | shield_phase 5 s | Stay invested through drawdowns | 100 coins |
+| W1-3 | Count Ponzi (`boss-w1-count-ponzi`) | All of Money | 580 | summon (recruits heal him) | Ponzi schemes die when new money stops | 150 coins (unlocks Scam Radar Ring quest) |
+| W2-1 | Fudge the Bookcooker (`boss-w2-fudge-bookcooker`) | Stocks ch 2 | 650 | mirror (2 decoys) | Profit can be dressed up; cash is a fact | 125 coins |
+| W2-2 | Mr. Market (`boss-w2-mr-market`) | Stocks ch 3 | 800 | mood_swing 15 s | Buy fear, ignore euphoria | 125 coins + Margin-of-Safety Plate |
+| W2-3 | Tilt, the Revenge Titan (`boss-w2-tilt-titan`) | All of Stocks | 950 | enrage_below 50% | Biases and revenge trading; follow the plan | 200 coins |
+| W3-1 | The Theta Reaper (`boss-w3-theta-reaper`) | Options ch 2 | 1,000 | countdown 15 s, never resets | Time decay | 150 coins + Policyholder Plate |
+| W3-2 | Magmus Vega (`boss-w3-magmus-vega`) | All of Options | 1,150 | mood_swing 12 s | Volatility cuts both ways; defined risk | 250 coins |
+| W4-1 | The Margin Caller (`boss-w4-margin-caller`) | Futures ch 2 | 1,250 | settlement every 15 s | Mark-to-market and margin calls | 175 coins + Hedger's Vest |
+| W4-2 | The Black Swan (`boss-w4-black-swan`) | All of Futures | 1,400 | enrage_below 30% | Tail risk: size and hedge for the worst day | 300 coins |
+
+The four original bosses now unlock at the chapter that teaches their concept (inflation, value investing, theta, margin), so their epic drops arrive mid-world. Each world's final boss needs the whole unit, the same gate as the unit exam. The six new bosses have no item drop because the catalogue has none for them. Cosmetic trophies or titles would fit there later.
+
+### 13.2 Mechanic semantics (one meaning per type, so the engine stays generic)
+
+| type | `value` means | Rule |
+|---|---|---|
+| regen | HP per second | Heals outside Focus Time only. Never above max HP |
+| shield_phase | Shield seconds | Every 20 s the boss is untargetable for `value` s. Questions still work, so players charge during it |
+| summon | Seconds between summons | Spawns one minion (max 3). Each living minion heals the boss 1 HP/s. Minion: 3 HP (3 chip hits) or dies to any charged shot |
+| mirror | Number of decoys | Every 20 s spawns decoys that take no damage. The real boss has a visible tell (gold shadow). Any hit on the real one clears them |
+| mood_swing | Seconds per mood | Alternates hot / cold. Hot: speed x1.3, boss takes +20% damage. Cold: speed x0.8, boss attacks +20%, and the phase ends in a 3 s slump (barely moves). Counts as a "big attack" window for `discount_window` |
+| countdown | Seconds per step | Boss damage +10% per step, compounding to a max of x2. Optional `resetOn: "charged_hit"` resets the stacks; `null` never resets. Optional `buffDrain`: multiplier on how fast player shields and timed buffs expire |
+| settlement | Interval in seconds | At each tick, if player HP < 25% of max, force a question card (Margin Call). Correct: heal 10 HP. Wrong or timeout: -1 pip and 10 damage (ignores the +20% wrong-answer boost) |
+| enrage_below | HP % threshold | Below it: speed x1.3 and attack cooldowns x0.8. Tilt's "sloppier" is flavor: wind-ups stay the same length |
+| none | unused | |
+
+**Attacks.** `cooldown` is in boss-time seconds (it runs at 20% during Focus Time) and is **not** divided by `speed`. `speed` scales boss movement and projectile speed only. `count` = projectiles (ring, volley, rain, homing). Slam and charge are the "big attacks" that open the Value Vanguard `discount_window`. Optional `look.template` picks the bossArt body (blob, suit, specter, beast, brute) instead of keyword guessing.
+
+### 13.3 Balancing assumptions
+
+Model (scratch sim, not committed): 1 question per 8 s of real time, 40% of real time in Focus Time, 80% of charged shots land, wrong answers cost a pip. Assumed gear when each boss unlocks: power 2 (Inflato, starter kit) rising to about 21 (Black Swan), defense similar.
+
+| Player | Time to win | HP left at the end |
+|---|---|---|
+| 80% accuracy, dodges 70% | 2.2-3.5 min | 7-28% (tight, winnable) |
+| 80% accuracy, dodges 80% | 2.2-3.5 min | 38-52% |
+| 90% accuracy, dodges 80% | 1.7-2.4 min | about 60% |
+
+- A starter-gear player at 80% accuracy beats Inflato in about 3.2 minutes, and Count Ponzi in about 5 minutes with just the Piggy Mallet (about 3.4 at 90% accuracy). With the W1 key kit it takes about 3.5 minutes. Knowing the material is the biggest lever: going from 80% to 90% accuracy cuts fight time by about 30%.
+- Early bosses attack about 12-15 times a minute and late ones about 20, with bigger hits (8-12 in W1, 22-30 in W4). The 30-damage hits (Leverage Slam, Tail Event) are always long, loud telegraphs.
+- Server check: `minCorrectToWin` (HP / (3 x per-pip)) stays well under these fights' real answer counts, so it won't reject honest wins.
+
+**Rewards and economy.** First-win coins across all 10 bosses total 1,675, compared with 400 in the section 3 sim (4 bosses x 100). For a regular player that adds about 13% to coins earned by day 90. It's one-time and gated by content, so it doesn't inflate. **Repeat-win coins (10-25) should be paid once per day in total, across all bosses**, not once per boss. Otherwise 10 bosses means 10 small payouts a day. Battle XP 60-280 per first win.
+
+### 13.4 Quests
+
+- **Signals only.** Every quest uses a signal that's countable today. No quest touches the gig board, autopilot, T-bill ladder or Life Clock yet. Those versions (section 6) come back when the systems exist. No quest counts trade volume, P&L or leverage. Journal quests count journaled trades, and their text says losers count the same as winners.
+- **Daily (8, show 3) and weekly (7, show 3).** Coin values are the World 1 base. Recommended scaling per world cleared: dailies +5 per world, weeklies +20 per world. That matches section 3.2 (W4 about 30-35 and 120-180).
+- **Filtering the daily and weekly pools.** Don't offer a quest the player can't do yet. Boss quests (`q-daily-charge-up`, `q-daily-sparring`, `q-weekly-battle-scholar`) should only appear once at least one boss is unlocked (after Money chapter 1). Offer journal and research quests only if those pages are available to the user. Otherwise a new player could be shown three quests they can't complete.
+- **Story (42; coins per world 400 / 500 / 450 / 450, matching section 3.2).** The board shows the first 5 open quests in file order, so the file is ordered by world and then roughly by lesson order. Item quests keep their catalogue ids: three-months-strong (14 Money lessons, after the emergency-fund lesson), autopilot-engaged (a 6-day streak after the DCA lesson), grizz-gauntlet (beat Count Ponzi after the scams lesson), journal-ten (10 journaled trades), the-wheel (the cash-secured puts lesson after the covered calls lesson), right-size (the sizing lesson after the margin lesson).
+- **Back-pay.** All-time signals mean existing players can claim lesson story quests they already finished right away. That's intended and works as a small welcome-back gift.
+- `boss_flawless` is used once (`q-w4-not-a-scratch`, any boss, so it's doable by replaying an early boss with late gear).
+
+### 13.5 Open questions
+
+1. OK that the four original bosses now sit mid-world (at their concept's chapter) and the world finals are new bosses?
+2. Should the six bosses without item drops get a cosmetic trophy or title on first win?
+3. Repeat-win coins: once a day across all bosses (recommended), or once a day per boss?

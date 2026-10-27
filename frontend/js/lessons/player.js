@@ -97,6 +97,7 @@ const Player = (() => {
         title: 'Leave this lesson?',
         message: quizStarted ? "Your quiz answers won't be saved. You'll restart the quiz next time." : "We'll remember which screen you were on.",
         confirmText: 'Leave',
+        cancelText: 'Keep going',
       });
       if (!ok) return;
     }
@@ -112,13 +113,13 @@ const Player = (() => {
     b.textContent = label;
     b.disabled = disabled;
     b.className = `btn btn-lg ${state === 'bad' ? 'btn-danger' : state === 'ok' ? 'btn-primary' : label === 'Check' ? 'btn-sun' : 'btn-primary'}`;
-    document.getElementById('p-back').style.visibility = back && s.i > 0 && !s.done ? 'visible' : 'hidden';
+    document.getElementById('p-back').classList.toggle('is-hidden', !(back && s.i > 0 && !s.done));
   }
 
-  function feedback(right, explain) {
+  function feedback(right, explain, headline) {
     s.practiceTotal++;
     if (right) s.practiceRight++;
-    const msg = `<b>${right ? 'Correct!' : 'Not quite.'}</b> ${escapeHtml(explain || '')}`;
+    const msg = `<b>${headline || (right ? 'Correct!' : 'Not quite.')}</b> ${escapeHtml(explain || '')}`;
     foot({ label: 'Continue', state: right ? 'ok' : 'bad', msg });
     if (Math.random() < (right ? 0.22 : 0.35)) {
       const [who, say] = (right ? PRAISE : COMFORT)[Math.floor(Math.random() * (right ? PRAISE.length : COMFORT.length))];
@@ -173,11 +174,11 @@ const Player = (() => {
       case 'cards':
         card.innerHTML = `<h2>${escapeHtml(step.title)}</h2><p class="muted">Tap each card to flip it.</p>
           <div class="flip-grid">${step.cards.map((c, k) => `<button class="flip" data-k="${k}"><span class="flip-in">
-            <span class="flip-front">${escapeHtml(c.front)}</span><span class="flip-back">${escapeHtml(c.back)}</span></span></button>`).join('')}</div>`;
+            <span class="flip-front">${escapeHtml(c.front)}<small class="flip-hint" aria-hidden="true">Tap to flip</small></span><span class="flip-back"><b>${escapeHtml(c.front)}</b>${escapeHtml(c.back)}</span></span></button>`).join('')}</div>`;
         card.querySelectorAll('.flip').forEach((b) => b.addEventListener('click', () => b.classList.toggle('on')));
         return foot();
       case 'diagram':
-        card.innerHTML = `<div class="figure">${Diagrams.render(step.name)}</div><p class="caption">${escapeHtml(step.caption)}</p>`;
+        card.innerHTML = `<div class="figure">${Diagrams.render(step.name)}</div><p class="figure-hint px-label" aria-hidden="true">Swipe the picture sideways to see all of it</p><p class="caption">${escapeHtml(step.caption)}</p>`;
         return foot();
       case 'widget':
         card.innerHTML = `<div class="widget-box" id="w-box"></div><p class="caption">${escapeHtml(step.caption)}</p>`;
@@ -190,7 +191,7 @@ const Player = (() => {
         });
       case 'truefalse':
         card.innerHTML = `<span class="px-label muted">True or false?</span><h2>${escapeHtml(step.statement)}</h2>
-          <div class="tf-row"><button class="opt-btn tf" data-v="true">True</button><button class="opt-btn tf" data-v="false">False</button></div>`;
+          <div class="tf-row"><button class="opt-btn tf" data-v="true"><span class="opt-key">1</span>True</button><button class="opt-btn tf" data-v="false"><span class="opt-key">2</span>False</button></div>`;
         return wireSingle(card, (v) => v === String(step.answer), step.explain, already, String(step.answer));
       case 'numeric':
         card.innerHTML = `<span class="px-label muted">Do the math</span><h2>${escapeHtml(step.question)}</h2>
@@ -275,7 +276,10 @@ const Player = (() => {
       <div class="match-grid"><div class="match-col">${step.pairs.map((p, k) => `<button class="match-btn" data-side="l" data-k="${k}">${escapeHtml(p.left)}</button>`).join('')}</div>
       <div class="match-col">${rights.map((k) => `<button class="match-btn" data-side="r" data-k="${k}">${escapeHtml(step.pairs[k].right)}</button>`).join('')}</div></div>`;
     const btns = card.querySelectorAll('.match-btn');
-    if (already) { btns.forEach((b) => { b.disabled = true; b.classList.add('is-right'); }); return foot(); }
+    if (already) {
+      btns.forEach((b) => { b.disabled = true; b.classList.add('is-right'); b.insertAdjacentHTML('afterbegin', `<span class="match-tag">${Number(b.dataset.k) + 1}</span>`); });
+      return foot();
+    }
     let sel = null;
     let matched = 0;
     let misses = 0;
@@ -287,11 +291,16 @@ const Player = (() => {
         return;
       }
       if (sel.dataset.k === b.dataset.k) {
-        [sel, b].forEach((x) => { x.classList.remove('picked'); x.classList.add('is-right'); x.disabled = true; });
         matched++;
+        // Number each matched pair so you can see which went with which,
+        // since the two columns don't line up row by row.
+        [sel, b].forEach((x) => {
+          x.classList.remove('picked'); x.classList.add('is-right'); x.disabled = true;
+          x.insertAdjacentHTML('afterbegin', `<span class="match-tag">${matched}</span>`);
+        });
         if (matched === step.pairs.length) {
           s.answered[s.i] = true;
-          feedback(misses === 0, misses === 0 ? 'Perfect match, no mistakes.' : `All matched, with ${misses} wrong guess${misses === 1 ? '' : 'es'} along the way.`);
+          feedback(misses === 0, misses === 0 ? 'Perfect match, no mistakes.' : `You got there, with ${misses} wrong guess${misses === 1 ? '' : 'es'} along the way.`, misses === 0 ? 'All matched!' : 'All matched.');
         }
       } else {
         misses++;
@@ -327,7 +336,7 @@ const Player = (() => {
       const right = result.every(Boolean);
       draw(true, result);
       if (!right) {
-        card.insertAdjacentHTML('beforeend', `<p class="muted" style="margin-top:12px"><b>Correct order:</b> ${step.items.map((t, k) => `${k + 1}. ${escapeHtml(t)}`).join(' &nbsp; ')}</p>`);
+        card.insertAdjacentHTML('beforeend', `<div class="order-answer"><b>Correct order</b><ol>${step.items.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ol></div>`);
       }
       s.answered[s.i] = true;
       feedback(right, step.explain);
@@ -435,7 +444,7 @@ const Player = (() => {
       </div>
       ${streakLine ? `<p class="streak-line">${escapeHtml(streakLine)}</p>` : ''}
       ${!r.firstTime && r.xpGained === 0 ? '<p class="muted">Replays only earn XP when you beat your best score.</p>' : ''}
-      ${s.practiceTotal ? `<p class="muted">Answered right this lesson: ${s.practiceRight}/${s.practiceTotal}</p>` : ''}
+      ${s.practiceTotal ? `<p class="muted">You got ${s.practiceRight} of ${s.practiceTotal} questions right in this lesson.</p>` : ''}
       ${r.newAchievements.length ? `<div class="ach-unlocks">${r.newAchievements.map((a) => `<div class="ach">${Sprites.character(a.sprite, 48)}<b>${escapeHtml(a.name)}</b><small>${escapeHtml(a.desc)}</small></div>`).join('')}</div>` : ''}
       ${reviewHtml(quiz, r.correct)}
     </div>`;
@@ -443,7 +452,7 @@ const Player = (() => {
     if (r.firstTime || r.score === 100) UI.confetti();
     UI.celebrate(r);
     const nextId = r.nextLessonId;
-    document.getElementById('p-back').style.visibility = 'visible';
+    document.getElementById('p-back').classList.remove('is-hidden');
     document.getElementById('p-back').textContent = 'Back to map';
     document.getElementById('p-back').onclick = () => App.go('/learn');
     document.getElementById('p-next').onclick = () => App.go(nextId ? `/lesson/${nextId}` : '/learn');

@@ -198,7 +198,7 @@ router.get('/export', async (req, res, next) => {
     const id = req.user.userId;
     // One connection, one transaction: a consistent snapshot without
     // opening nine connections at once.
-    const [user, portfolios, positions, trades, analyses, lessons, exams, achievements, xp, avatar, items, equipment, coinHistory] = await withTransaction(async (db) => {
+    const [user, portfolios, positions, trades, analyses, lessons, exams, achievements, xp, avatar, items, equipment, coinHistory, battles, questClaims] = await withTransaction(async (db) => {
       const out = [];
       for (const [sql, params] of [
         [
@@ -218,6 +218,8 @@ router.get('/export', async (req, res, next) => {
         ['SELECT item_id, source, acquired_at FROM user_items WHERE user_id = $1', [id]],
         ['SELECT slot, item_id FROM user_equipment WHERE user_id = $1', [id]],
         ['SELECT amount, reason, ref, created_at FROM coin_events WHERE user_id = $1 ORDER BY created_at', [id]],
+        ['SELECT boss_id, status, correct, wrong, damage_taken, duration_ms, reward_coins, reward_item, started_at FROM battles WHERE user_id = $1 ORDER BY started_at', [id]],
+        ['SELECT quest_id, period_key, coins, item_id, claimed_at FROM quest_claims WHERE user_id = $1 ORDER BY claimed_at', [id]],
       ]) out.push(await db.query(sql, params));
       return out;
     });
@@ -237,6 +239,8 @@ router.get('/export', async (req, res, next) => {
       items: items.rows,
       equipment: equipment.rows,
       coinHistory: coinHistory.rows,
+      battles: battles.rows,
+      questClaims: questClaims.rows,
     });
   } catch (err) {
     next(err);

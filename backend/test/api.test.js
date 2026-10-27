@@ -232,3 +232,81 @@ test('hideout: starter kit, appearance validation, shop guards', async () => {
   }
   await call('DELETE', '/api/me', { password: 'Correct horse 9', confirm: 'DELETE' });
 });
+
+test('boss battles: locked until the chapter is done, graded server-side, wins must add up', { timeout: 60000 }, async () => {
+  const r0 = await call('POST', '/api/auth/register', { username: `${uname}b`, password: 'Correct horse 9', acceptTerms: true, confirmAge: true }, { auth: false });
+  access = r0.data.accessToken;
+  const bossId = 'boss-w1-inflato';
+  let r = await call('POST', `/api/battles/${bossId}/start`);
+  assert.equal(r.status, 403, 'locked before chapter 1 is finished');
+
+  const cat = (await call('GET', '/api/lessons/catalog')).data;
+  for (const l of cat.units.find((u) => u.id === 'money').chapters[0].lessons) {
+    const lesson = (await call('GET', `/api/lessons/lesson/${l.id}`)).data;
+    const quiz = lesson.steps[lesson.steps.length - 1];
+    await call('POST', `/api/lessons/lesson/${l.id}/complete`, { answers: quiz.questions.map((q) => q.answer) });
+  }
+  const list = (await call('GET', '/api/battles')).data;
+  assert.equal(list.bosses.length, 10);
+  assert.ok(list.bosses.find((b) => b.id === bossId).unlocked);
+  assert.equal(list.loadout.hp, 100);
+  assert.ok(list.loadout.stats.power > 0, 'starter kit counts before the Hideout is opened');
+
+  // A win claimed with no correct answers is rejected and the fight is voided.
+  let start = (await call('POST', `/api/battles/${bossId}/start`)).data;
+  r = await call('POST', `/api/battles/${start.battleId}/finish`, { result: 'won', damageTaken: 0 });
+  assert.equal(r.status, 400);
+  r = await call('POST', `/api/battles/${start.battleId}/next`);
+  assert.equal(r.status, 404, 'voided battle is over');
+
+  start = (await call('POST', `/api/battles/${bossId}/start`)).data;
+  const begun = Date.now();
+  const id = start.battleId;
+  const q = (await call('POST', `/api/battles/${id}/next`)).data;
+  assert.ok(q.q && q.options.length >= 2);
+  assert.ok(!('answer' in q), 'answers must not be sent before answering');
+  r = await call('POST', `/api/battles/${id}/answer`, { index: 5, choice: 0 });
+  assert.equal(r.status, 409, 'cannot skip ahead');
+  r = await call('POST', `/api/battles/${id}/hint`);
+  assert.equal(r.status, 200, 'starter set gives one hint');
+  assert.ok(r.data.remove.length >= 1);
+  r = await call('POST', `/api/battles/${id}/hint`);
+  assert.equal(r.status, 403, 'hints are limited by gear');
+
+  // Learn the deck by answering it once (mostly wrong), then answer the recycled questions correctly.
+  const answers = [];
+  for (let i = 0; i < start.questionCount; i++) {
+    r = await call('POST', `/api/battles/${id}/answer`, { index: i, choice: -1 });
+    assert.equal(r.data.correct, false, `${r.status} ${JSON.stringify(r.data)}`);
+    answers.push(r.data.answer);
+  }
+  for (let i = 0; i < start.minCorrect; i++) {
+    const n = start.questionCount + i;
+    r = await call('POST', `/api/battles/${id}/answer`, { index: n, choice: answers[n % start.questionCount] });
+    assert.equal(r.data.correct, true);
+  }
+  await new Promise((ok) => setTimeout(ok, Math.max(0, 21000 - (Date.now() - begun))));
+  const win = (await call('POST', `/api/battles/${id}/finish`, { result: 'won', damageTaken: 12 })).data;
+  assert.equal(win.firstWin, true);
+  assert.equal(win.coins, 100);
+  assert.equal(win.item.id, 'piggy-mallet');
+  assert.ok(win.xp >= 60);
+  r = await call('POST', `/api/battles/${id}/finish`, { result: 'won' });
+  assert.equal(r.status, 404, 'cannot finish twice');
+
+  // Quests: the boss quest needs the lesson quest claimed first, then pays out once.
+  let board = (await call('GET', '/api/quests')).data;
+  assert.equal(board.daily.length, 3);
+  r = await call('POST', '/api/quests/q-w1-plug-the-leak/claim');
+  assert.equal(r.status, 400, 'chained quest is not on the board yet');
+  r = await call('POST', '/api/quests/q-w1-pennys-leak/claim');
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.claimed.coins, 30);
+  r = await call('POST', '/api/quests/q-w1-pennys-leak/claim');
+  assert.equal(r.status, 400, 'no double claims');
+  r = await call('POST', '/api/quests/q-w1-plug-the-leak/claim');
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  r = await call('POST', '/api/quests/q-w1-official-business/claim');
+  assert.equal(r.status, 400, 'not done yet');
+  await call('DELETE', '/api/me', { password: 'Correct horse 9', confirm: 'DELETE' });
+});

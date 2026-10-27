@@ -34,7 +34,8 @@ const Profile = (() => {
             <div class="stat-tile"><div class="num">${Object.keys(prog.completions).length}</div><div class="lbl">Lessons</div></div>
           </div>
           <div class="eyebrow" style="margin-top:20px">Pick your avatar</div>
-          <div class="avatar-pick">${Sprites.list.map((n) => `<button data-avatar="${n}" class="${me.avatar === n ? 'on' : ''}" ${me.ownedAvatars.includes(n) ? '' : 'disabled'} title="${me.ownedAvatars.includes(n) ? Sprites.NAMES[n] : 'Unlock in the shop'}">${Sprites.character(n, 44)}</button>`).join('')}</div>
+          <div class="avatar-pick">${Sprites.list.map((n) => `<button data-avatar="${n}" class="${me.avatar === n ? 'on' : ''}" ${me.ownedAvatars.includes(n) ? '' : 'disabled'} title="${me.ownedAvatars.includes(n) ? Sprites.NAMES[n] : 'Unlock in the shop'}" aria-label="${Sprites.NAMES[n]}${me.ownedAvatars.includes(n) ? '' : ' (locked)'}">${Sprites.character(n, 44)}</button>`).join('')}</div>
+          ${Sprites.list.some((n) => !me.ownedAvatars.includes(n)) ? '<p class="muted" style="font-size:13px;margin:10px 0 0">Faded ones are locked. Unlock them in the <a href="#shop" data-to-shop>coin shop</a>.</p>' : ''}
           <p class="muted" style="font-size:13px;margin-top:14px">Member since ${new Date(me.createdAt).toLocaleDateString()}</p>
         </div>
         <div class="stack">
@@ -71,6 +72,7 @@ const Profile = (() => {
         UI.toast(err.message, 'error');
       }
     }));
+    view.querySelector('[data-to-shop]')?.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' }); });
     if (location.hash === '#shop') setTimeout(() => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' }), 100);
   }
 
@@ -93,7 +95,7 @@ const Ranks = (() => {
         <div class="card">
           <div class="tabs"><button data-t="weekly" class="${tab === 'weekly' ? 'on' : ''}">This week</button><button data-t="all" class="${tab === 'all' ? 'on' : ''}">All time</button></div>
           ${tab === 'weekly' ? list(data.weekly, 'xp') : list(data.allTime, 'xp')}
-          <hr class="divider"><div class="row"><b>You</b><span class="spacer"></span><span class="mono">${data.me.week_xp} XP this week · all-time rank #${data.me.all_time_rank}</span></div>
+          <hr class="divider"><div class="rank-summary"><b>You</b><span class="mono">${data.me.week_xp} XP this week · #${data.me.all_time_rank} all time</span></div>
           ${me.showOnLeaderboard ? '' : '<p class="muted" style="font-size:14px">You are hidden from the leaderboard. Change that in Settings.</p>'}
         </div></div>`;
       view.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { tab = b.dataset.t; draw(); });

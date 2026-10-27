@@ -50,6 +50,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
 html, body { margin: 0; padding: 0; }
@@ -334,4 +335,48 @@ button { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+/* ============================================================
+   Polish pass (UX audit): states, tap targets, small fixes
+   ============================================================ */
+a.chip-tag { text-decoration: none; }
+a.chip-tag:hover { color: var(--ink); box-shadow: var(--shadow-sm); transform: translate(-1px, -1px); }
+.empty-state h2, .empty-state h3 { color: var(--ink); margin-top: 6px; }
+.empty-state p { max-width: 460px; margin-left: auto; margin-right: auto; }
+
+/* Inline errors on checkbox lines (signup terms / age). */
+.check-line { flex-wrap: wrap; }
+.check-line > span { flex: 1; min-width: 0; }
+.check-line .field-error { flex-basis: 100%; margin: 2px 0 0 30px; }
+.check-line.has-error input { outline: 3px solid var(--tomato-d); outline-offset: 1px; border-radius: 4px; }
+
+/* Optional-email disclosure: one marker, not two. */
+.email-opt summary { list-style: none; }
+.email-opt summary::-webkit-details-marker { display: none; }
+.email-opt[open] summary { color: var(--muted); }
+
+/* Toggle switches hide the real checkbox; show keyboard focus on the track. */
+.toggle input:focus-visible + span { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+/* Auth modal: the mascot's bubble shouldn't run under the close button. */
+#auth-body > .speech:first-child { margin-top: 4px; padding-right: 40px; }
+
+/* Confirm dialogs: keep the title clear of the close button. */
+.confirm-title { padding-right: 40px; }
+
+/* Keyboard focus on chunky buttons. */
+.btn:focus-visible, .opt-btn:focus-visible, .match-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+.node:focus-visible { outline: none; }
+.node:focus-visible .node-disc { outline: 3px solid var(--sky); outline-offset: 4px; }
+
+@media (max-width: 600px) {
+  .modal-box { padding: 22px 18px; border-radius: 16px; }
+  .modal-close { width: 40px; height: 40px; top: 10px; right: 10px; }
+  .modal-actions .btn { flex: 1; }
+  .btn-sm { min-height: 40px; }
+  .toast-stack { left: 16px; right: 16px; max-width: none; }
+  .cameo { left: 10px; }
+  .cameo .sprite { width: 64px; height: 64px; }
+  .cameo .bubble { max-width: min(240px, calc(100vw - 100px)); margin-bottom: 22px; }
 }

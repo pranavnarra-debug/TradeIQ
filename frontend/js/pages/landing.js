@@ -133,11 +133,11 @@ const Landing = (() => {
       </div></section>
 
       <section class="section"><div class="wrap split">
-        <div class="card desk-mock">
+        <div class="card desk-mock" aria-hidden="true">
           <div class="row"><span class="px-label">Simulated portfolio</span><span class="chip-tag">${Sprites.icon('lock', 12)} Fake money</span></div>
           <div class="big">$50,000.00</div>
           <div class="bar-row">${[38, 52, 44, 61, 57, 70, 66, 82, 74, 90].map((h, i) => `<span style="height:${h}%;background:${i % 3 === 2 ? 'var(--tomato)' : 'var(--mint)'}"></span>`).join('')}</div>
-          <div class="row"><button class="btn btn-sm btn-primary" tabindex="-1">Buy</button><button class="btn btn-sm btn-danger" tabindex="-1">Sell</button><span class="spacer"></span><span class="mono muted">9 strategies</span></div>
+          <div class="row"><span class="btn btn-sm btn-primary">Buy</span><span class="btn btn-sm btn-danger">Sell</span><span class="spacer"></span><span class="mono muted">9 strategies</span></div>
         </div>
         <div>
           <span class="eyebrow">The trading sim</span>

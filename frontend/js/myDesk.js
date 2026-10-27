@@ -80,10 +80,10 @@ const MyDeskSection = (() => {
     content.innerHTML = `
       <div class="controls-row">
         <div id="desk-ticker-select-picker"></div>
-        <select class="input" id="desk-strategy-select">${strategySelectHtml()}</select>
-        <span class="badge badge-hold" id="desk-signal-indicator">NEUTRAL</span>
+        <label class="control-field"><span class="px-label">Strategy</span><select class="input" id="desk-strategy-select">${strategySelectHtml()}</select></label>
+        <span class="signal-pill" title="What this strategy's rules say right now. Not advice."><span class="px-label">Signal</span><span class="badge badge-hold" id="desk-signal-indicator">NEUTRAL</span></span>
       </div>
-      <div class="muted" id="desk-style-note" style="font-size:12.5px;margin:-6px 0 14px;"></div>
+      <div class="muted style-note" id="desk-style-note"></div>
 
       <div class="trading-layout">
         <div class="card">
@@ -128,10 +128,10 @@ const MyDeskSection = (() => {
 
       <div class="card section-spacer">
         <div class="card-title">Open Positions</div>
-        <table>
+        <div class="table-scroll"><table>
           <thead><tr><th>Ticker</th><th>Side</th><th>Qty</th><th>Entry</th><th>Current</th><th>Unr. P&L</th><th>%</th><th></th></tr></thead>
           <tbody id="positions-table-body"><tr><td colspan="8" class="empty-state">Loading...</td></tr></tbody>
-        </table>
+        </table></div>
       </div>
 
       <div class="card section-spacer">
@@ -140,11 +140,11 @@ const MyDeskSection = (() => {
       </div>
 
       <div class="card section-spacer">
-        <div class="collapsible-header" id="history-toggle">
-          <div class="card-title" style="margin-bottom:0;">Trade History</div>
-          &#9662;
-        </div>
-        <div id="history-table-wrap" style="display:none; margin-top: 14px;">
+        <button type="button" class="collapsible-header collapsed" id="history-toggle" aria-expanded="false" aria-controls="history-table-wrap">
+          <span class="card-title" style="margin-bottom:0;">Trade History</span>
+          <span class="chev" aria-hidden="true">&#9662;</span>
+        </button>
+        <div id="history-table-wrap" class="table-scroll" style="display:none; margin-top: 14px;">
           <table>
             <thead><tr><th>Time</th><th>Ticker</th><th>Action</th><th>Entry/Exit</th><th>Qty</th><th>Realized P&L</th><th>Strategy</th></tr></thead>
             <tbody id="history-table-body"></tbody>
@@ -198,6 +198,13 @@ const MyDeskSection = (() => {
     updateEstimatedCost();
 
     restartSignalPolling();
+    // Router calls this when you leave the page.
+    return () => {
+      if (state.signalTimer) clearInterval(state.signalTimer);
+      state.signalTimer = null;
+      ChartHelpers.destroyIfExists(state.chartInstance);
+      state.chartInstance = null;
+    };
   }
 
   function restartSignalPolling() {
@@ -288,11 +295,13 @@ const MyDeskSection = (() => {
     const limitPrice = Number(document.getElementById('limit-price-input').value) || null;
 
     if (!qty || qty <= 0) {
-      alert('Please enter a valid quantity');
+      UI.toast('Enter how many shares you want (1 or more).', 'error');
+      document.getElementById('order-qty').focus();
       return;
     }
     if (orderType === 'limit' && !limitPrice) {
-      alert('Please enter a limit price');
+      UI.toast('Enter a limit price, or switch to a market order.', 'error');
+      document.getElementById('limit-price-input').focus();
       return;
     }
 
@@ -306,10 +315,11 @@ const MyDeskSection = (() => {
       }
     }
 
-    const estTotal = displayPrice ? (displayPrice * qty).toFixed(2) : '—';
+    const estTotal = displayPrice ? fmtMoney(displayPrice * qty) : '—';
     showConfirmModal({
-      title: 'Confirm Trade',
-      message: `${state.orderSide === 'BUY' ? 'Buy' : 'Sell'} ${qty} shares of ${state.ticker} at ${displayPrice ? '$' + fmt(displayPrice) : 'market price'} (${orderType}) = $${estTotal}. Confirm?`,
+      title: 'Confirm trade',
+      message: `${state.orderSide === 'BUY' ? 'Buy' : 'Sell'} ${qty} share${qty === 1 ? '' : 's'} of ${escapeHtml(state.ticker)} at ${displayPrice ? fmtMoney(displayPrice) : 'market price'} (${orderType} order), about ${estTotal} in simulated money.`,
+      confirmText: state.orderSide === 'BUY' ? 'Buy (simulated)' : 'Sell (simulated)',
       onConfirm: async () => {
         try {
           UI.celebrate(await api.post(`/portfolio/${state.portfolioId}/trade`, {
@@ -364,8 +374,9 @@ const MyDeskSection = (() => {
 
   function handleClosePosition(posId, symbol) {
     showConfirmModal({
-      title: 'Close Position',
-      message: `Close your ${symbol} position at the current market price?`,
+      title: 'Close position',
+      message: `Close your ${escapeHtml(symbol)} position at the current market price?`,
+      confirmText: 'Close it',
       onConfirm: async () => {
         try {
           UI.celebrate(await api.post(`/portfolio/${state.portfolioId}/close/${posId}`, {}));
@@ -418,10 +429,11 @@ const MyDeskSection = (() => {
     state.historyVisible = !state.historyVisible;
     document.getElementById('history-table-wrap').style.display = state.historyVisible ? 'block' : 'none';
     document.getElementById('history-toggle').classList.toggle('collapsed', !state.historyVisible);
+    document.getElementById('history-toggle').setAttribute('aria-expanded', String(state.historyVisible));
   }
 
-  async function showConfirmModal({ title, message, onConfirm }) {
-    if (await UI.confirm({ title, message })) await onConfirm();
+  async function showConfirmModal({ title, message, confirmText, onConfirm }) {
+    if (await UI.confirm({ title, message, confirmText })) await onConfirm();
   }
 
   function showToast(type, message) {
