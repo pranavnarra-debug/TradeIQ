@@ -42,11 +42,12 @@ const Arena = (() => {
         <p>An endless climb. Every floor is a fight, every 5th is a Guardian, and monsters drop gear (${d.lootCount} pieces to find). Lose and your run starts over at floor 1.</p>
         <div class="dungeon-stats">
           <span class="chip-tag">${Sprites.icon('trophy', 14)} Best: floor ${d.bestFloor}</span>
-          <span class="chip-tag" title="Your daily Dungeon coin cap: 30, plus 10 for each lesson you pass today (up to 60)">${Sprites.icon('coin', 14)} ${d.coinsToday}/${d.caps.coins} coins today${d.caps.coins < d.caps.maxCoins ? ` · +${d.caps.perLesson} cap per lesson` : ''}</span>
+          <span class="chip-tag" title="Your daily Dungeon coin cap: 10, plus 10 for each lesson you pass today (up to 60)">${Sprites.icon('coin', 14)} ${d.coinsToday}/${d.caps.coins} coins today${d.caps.coins < d.caps.maxCoins ? ` · +${d.caps.perLesson} cap per lesson` : ''}</span>
           <span class="chip-tag" title="Daily cap">${Sprites.icon('star', 14)} ${d.xpToday}/${d.caps.xp} XP today</span>
+          <span class="chip-tag" title="Gear drops per day: 1, plus 1 for each lesson you pass today (up to ${d.caps.maxLoot})">${Sprites.icon('gem', 14)} ${d.dropsToday}/${d.caps.loot} loot today${d.caps.loot < d.caps.maxLoot ? ' · +1 per lesson' : ''}</span>
         </div>
         <div class="cap-bar" aria-hidden="true"><span style="width:${pct(d.coinsToday, d.caps.coins)}%"></span></div>
-        ${d.odds ? `<details class="odds"><summary>Drop odds</summary><p>Normal floors drop gear ${Math.round(d.odds.normalDropChance * 100)}% of the time; Guardian floors always drop. Duplicates turn into coins.</p>
+        ${d.odds ? `<details class="odds"><summary>Drop odds</summary><p>Normal floors drop gear ${Math.round(d.odds.normalDropChance * 100)}% of the time; Guardian floors always drop. You get ${d.caps.loot} drop${d.caps.loot === 1 ? '' : 's'} today; each lesson you pass adds one (up to ${d.caps.maxLoot}). Duplicates turn into coins.</p>
           <ul>${d.odds.bands.map((b) => `<li><b>Floors ${b.fromFloor}${b.toFloor ? `-${b.toFloor}` : '+'}:</b> ${escapeHtml(b.oddsText)}</li>`).join('')}</ul></details>` : ''}
         <div class="row-wrap"><a class="btn btn-primary" href="/battle/dungeon">${d.currentFloor ? `Enter floor ${d.nextFloor}` : 'Enter the Dungeon'}</a>
           <span class="muted" style="font-size:13px">Next: ${escapeHtml(m.name)} · ${m.hp} HP</span></div>

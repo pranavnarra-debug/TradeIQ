@@ -1,34 +1,75 @@
 {
   "version": 1,
-  "notes": "Written by game design. Dungeon loot odds, shown to players (firm rule 3: earned random drops only, odds always visible). On a cleared floor, roll normalDropChance (Guardian floors, every 5th, use guardianDropChance = guaranteed). If it drops, pick a rarity by the band's weights (they sum to 100, so each weight is a percent), then a random dungeon item of that rarity whose minFloor <= the floor. A duplicate turns into duplicateCoins. Recommended: duplicate coins count toward the dungeon's daily coin cap.",
-  "normalDropChance": 0.35,
+  "notes": "Written by game design. Dungeon loot odds, shown to players (firm rule 3: earned random drops only, odds always visible). On a cleared floor, roll normalDropChance (Guardian floors, every 5th, use guardianDropChance = guaranteed). If it drops, pick a rarity by the band's weights (they sum to 100, so each weight is a percent), then a random dungeon item of that rarity whose minFloor <= the floor. A duplicate turns into duplicateCoins. Recommended: duplicate coins count toward the dungeon's daily coin cap. Owner change: normal floors 35% -> 20%, and loot is limited per day (1 free + 1 per lesson passed today, max 6; services/dungeon.js lootCapFor). Guardians are guaranteed only while today's loot limit has room.",
+  "normalDropChance": 0.2,
   "guardianDropChance": 1,
   "bands": [
     {
-      "fromFloor": 1, "toFloor": 5,
-      "weights": { "common": 70, "uncommon": 30, "rare": 0, "epic": 0, "legendary": 0 },
-      "oddsText": "Floors 1-5: 35% chance of loot on each floor, guaranteed on the Guardian. Loot is 70% common, 30% uncommon."
+      "fromFloor": 1,
+      "toFloor": 5,
+      "weights": {
+        "common": 70,
+        "uncommon": 30,
+        "rare": 0,
+        "epic": 0,
+        "legendary": 0
+      },
+      "oddsText": "Floors 1-5: 20% chance of loot on each floor, guaranteed on the Guardian (while you have daily loot left). Loot is 70% common, 30% uncommon."
     },
     {
-      "fromFloor": 6, "toFloor": 11,
-      "weights": { "common": 45, "uncommon": 35, "rare": 20, "epic": 0, "legendary": 0 },
-      "oddsText": "Floors 6-11: 35% chance of loot on each floor, guaranteed on Guardians. Loot is 45% common, 35% uncommon, 20% rare."
+      "fromFloor": 6,
+      "toFloor": 11,
+      "weights": {
+        "common": 45,
+        "uncommon": 35,
+        "rare": 20,
+        "epic": 0,
+        "legendary": 0
+      },
+      "oddsText": "Floors 6-11: 20% chance of loot on each floor, guaranteed on Guardians (while you have daily loot left). Loot is 45% common, 35% uncommon, 20% rare."
     },
     {
-      "fromFloor": 12, "toFloor": 19,
-      "weights": { "common": 25, "uncommon": 35, "rare": 28, "epic": 12, "legendary": 0 },
-      "oddsText": "Floors 12-19: 35% chance of loot on each floor, guaranteed on Guardians. Loot is 25% common, 35% uncommon, 28% rare, 12% epic."
+      "fromFloor": 12,
+      "toFloor": 19,
+      "weights": {
+        "common": 25,
+        "uncommon": 35,
+        "rare": 28,
+        "epic": 12,
+        "legendary": 0
+      },
+      "oddsText": "Floors 12-19: 20% chance of loot on each floor, guaranteed on Guardians (while you have daily loot left). Loot is 25% common, 35% uncommon, 28% rare, 12% epic."
     },
     {
-      "fromFloor": 20, "toFloor": 29,
-      "weights": { "common": 10, "uncommon": 30, "rare": 35, "epic": 18, "legendary": 7 },
-      "oddsText": "Floors 20-29: 35% chance of loot on each floor, guaranteed on Guardians. Loot is 10% common, 30% uncommon, 35% rare, 18% epic, 7% legendary."
+      "fromFloor": 20,
+      "toFloor": 29,
+      "weights": {
+        "common": 10,
+        "uncommon": 30,
+        "rare": 35,
+        "epic": 18,
+        "legendary": 7
+      },
+      "oddsText": "Floors 20-29: 20% chance of loot on each floor, guaranteed on Guardians (while you have daily loot left). Loot is 10% common, 30% uncommon, 35% rare, 18% epic, 7% legendary."
     },
     {
-      "fromFloor": 30, "toFloor": null,
-      "weights": { "common": 5, "uncommon": 20, "rare": 37, "epic": 26, "legendary": 12 },
-      "oddsText": "Floor 30 and deeper: 35% chance of loot on each floor, guaranteed on Guardians. Loot is 5% common, 20% uncommon, 37% rare, 26% epic, 12% legendary."
+      "fromFloor": 30,
+      "toFloor": null,
+      "weights": {
+        "common": 5,
+        "uncommon": 20,
+        "rare": 37,
+        "epic": 26,
+        "legendary": 12
+      },
+      "oddsText": "Floor 30 and deeper: 20% chance of loot on each floor, guaranteed on Guardians (while you have daily loot left). Loot is 5% common, 20% uncommon, 37% rare, 26% epic, 12% legendary."
     }
   ],
-  "duplicateCoins": { "common": 1, "uncommon": 2, "rare": 4, "epic": 8, "legendary": 15 }
+  "duplicateCoins": {
+    "common": 1,
+    "uncommon": 2,
+    "rare": 4,
+    "epic": 8,
+    "legendary": 15
+  }
 }

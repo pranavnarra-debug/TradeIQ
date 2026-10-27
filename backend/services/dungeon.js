@@ -8,11 +8,15 @@
 import { UNITS } from '../content/index.js';
 
 // Learning should stay the best-paying activity: the dungeon's daily coin cap
-// starts at 30 and grows 10 per lesson passed that day, up to 60.
+// starts at 10 and grows 10 per lesson passed that day, up to 60. Gear drops
+// are limited the same way (lootCapFor).
 export const DAILY_COIN_CAP = 60;
-export const BASE_COIN_CAP = 30;
+export const BASE_COIN_CAP = 10;
 export const DAILY_XP_CAP = 120;
 export const coinCapFor = (lessonsToday) => Math.min(DAILY_COIN_CAP, BASE_COIN_CAP + 10 * lessonsToday);
+// Gear drops per day: 1 free, plus 1 for each lesson passed today.
+export const DAILY_LOOT_CAP = 6;
+export const lootCapFor = (lessonsToday) => Math.min(DAILY_LOOT_CAP, 1 + lessonsToday);
 
 const MONSTERS = [
   { key: 'late-fee-imp', signature: 'bounce', name: 'Late Fee Imp', title: 'Collector of Oopsies', template: 'blob', body: '#ff7a45', accent: '#ffd23f',

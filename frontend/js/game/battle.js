@@ -1034,7 +1034,8 @@ const Battle = (() => {
       ${r.item ? `<p class="drop">${Sprites.icon('gem', 22)}<span>New item: <b>${escapeHtml(r.item.name)}</b> <span class="muted">(${r.item.rarity})</span>. Equip it in your Hideout.</span></p>` : ''}
       ${won && !r.firstWin && !dg ? `<p class="muted" style="font-size:14px">Repeat wins pay a small coin bonus once a day.</p>` : ''}
       ${dg?.duplicateCoins ? `<p class="drop">${Sprites.icon('coin', 22)}<span>Duplicate drop turned into <b>${dg.duplicateCoins} coins</b>.</span></p>` : ''}
-      ${dg?.capped ? '<p class="muted" style="font-size:14px">You hit today\'s Dungeon coin/XP cap. Loot still drops; caps reset at midnight.</p>' : ''}
+      ${dg?.lootLocked ? '<p class="muted" style="font-size:14px">No loot left today. <a href="/learn">Pass a lesson</a> to unlock another drop.</p>' : ''}
+      ${dg?.capped ? '<p class="muted" style="font-size:14px">You hit today\'s Dungeon coin/XP cap. Pass a lesson to raise it; caps reset at midnight.</p>' : ''}
       ${r.coinsLost ? `<p class="drop" style="color:var(--tomato)">${Sprites.icon('warning', 22)}<span>Pop Quizzes cost you <b>${r.coinsLost} coins</b>.</span></p>` : ''}
       ${r.journal?.length ? `<details class="review" open><summary>Trading journal: ${r.journal.length} to review</summary><ol>
         ${r.journal.map((j) => `<li><b>${escapeHtml(j.q)}</b><br>Answer: ${escapeHtml(j.answer)}. <span class="muted">${escapeHtml(j.explain || '')}</span></li>`).join('')}</ol></details>` : ''}

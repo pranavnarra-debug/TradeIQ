@@ -351,6 +351,10 @@ test('dungeon: open from day one, pop quizzes cost coins, losing ends the run', 
   d = (await call('GET', '/api/battles/dungeon')).data;
   assert.equal(d.nextFloor, 2);
   assert.equal(d.bestFloor, 1);
+  // No lessons passed today: 1 free drop, coin cap 10.
+  assert.equal(d.caps.loot, 1);
+  assert.equal(d.caps.coins, 10);
+  assert.equal(d.dropsToday, win.item || win.dungeon.duplicateCoins ? 1 : 0);
 
   // Losing floor 2 ends the run.
   const s2 = (await call('POST', '/api/battles/dungeon/start')).data;

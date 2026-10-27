@@ -17,7 +17,7 @@ import { awardXp, touchStreak, checkAchievements, levelFor } from '../services/p
 import { logActivity } from '../services/activity.js';
 import { ensureStarterKit } from './game.js';
 import { isAdmin } from '../services/adminAccess.js';
-import { monsterFor, dungeonLessons, floorRewards, coinCapFor, DAILY_XP_CAP } from '../services/dungeon.js';
+import { monsterFor, dungeonLessons, floorRewards, coinCapFor, lootCapFor, DAILY_LOOT_CAP, DAILY_XP_CAP } from '../services/dungeon.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -99,13 +99,14 @@ async function dungeonProgress(db, userId, lock = false) {
     [userId]
   );
   const p = rows[0];
-  if (p.day_text !== p.today) { p.coins_today = 0; p.xp_today = 0; }
+  if (p.day_text !== p.today) { p.coins_today = 0; p.xp_today = 0; p.drops_today = 0; }
   const lessons = await db.query(
     `SELECT COUNT(*)::int AS n FROM activity_log WHERE user_id = $1 AND kind = 'lesson_pass'
        AND (created_at AT TIME ZONE (SELECT COALESCE(timezone, 'America/New_York') FROM users WHERE id = $1))::date = $2::date`,
     [userId, p.today]
   );
   p.coin_cap = coinCapFor(lessons.rows[0].n);
+  p.loot_cap = lootCapFor(lessons.rows[0].n);
   return p;
 }
 
@@ -119,7 +120,8 @@ function dungeonView(p) {
     runs: p.runs,
     coinsToday: p.coins_today,
     xpToday: p.xp_today,
-    caps: { coins: p.coin_cap, xp: DAILY_XP_CAP, maxCoins: 60, perLesson: 10 },
+    dropsToday: p.drops_today,
+    caps: { coins: p.coin_cap, xp: DAILY_XP_CAP, maxCoins: 60, perLesson: 10, loot: p.loot_cap, maxLoot: DAILY_LOOT_CAP },
     monster: publicBoss({ ...monsterFor(next), questionPool: null }),
     odds: table ? {
       normalDropChance: table.normalDropChance,
@@ -329,7 +331,7 @@ router.post('/:battleId/finish', async (req, res, next) => {
 
       if (boss.dungeon) {
         const p = await dungeonProgress(db, userId, true);
-        dungeon = { floor: boss.floor, best: p.best_floor, newBest: false, coins: 0, xp: 0, capped: false, duplicateCoins: 0 };
+        dungeon = { floor: boss.floor, best: p.best_floor, newBest: false, coins: 0, xp: 0, capped: false, duplicateCoins: 0, lootLocked: false };
         if (result === 'won' && boss.floor === p.current_floor + 1) {
           const r = floorRewards(boss.floor);
           const rx = withXpBonus(r.xp, b.loadout);
@@ -337,8 +339,12 @@ router.post('/:battleId/finish', async (req, res, next) => {
           const x = Math.max(0, Math.min(rx, DAILY_XP_CAP - p.xp_today));
           dungeon = { ...dungeon, coins: c, xp: x, capped: c < r.coins || x < rx, best: Math.max(p.best_floor, boss.floor), newBest: boss.floor > p.best_floor };
           // Loot: odds from content/game/dungeon-loot.json; duplicates become coins.
-          const drop = rollLoot(boss.floor, boss.floor % 5 === 0);
+          // Only while today's loot limit (1 + lessons passed today) has room.
+          const lootLeft = p.drops_today < p.loot_cap;
+          const drop = lootLeft ? rollLoot(boss.floor, boss.floor % 5 === 0) : null;
+          dungeon.lootLocked = !lootLeft;
           if (drop) {
+            p.drops_today += 1;
             const ins = await db.query(
               `INSERT INTO user_items (user_id, item_id, source) VALUES ($1, $2, 'dungeon') ON CONFLICT DO NOTHING RETURNING item_id`,
               [userId, drop.id]
@@ -354,8 +360,8 @@ router.post('/:battleId/finish', async (req, res, next) => {
           await awardXp(db, userId, 'dungeon', boss.id, x, coins);
           await db.query(
             `UPDATE dungeon_progress SET current_floor = $1, best_floor = GREATEST(best_floor, $1), day = $2::date,
-               coins_today = $3, xp_today = $4, updated_at = NOW() WHERE user_id = $5`,
-            [boss.floor, p.today, p.coins_today + c, p.xp_today + x, userId]
+               coins_today = $3, xp_today = $4, drops_today = $5, updated_at = NOW() WHERE user_id = $6`,
+            [boss.floor, p.today, p.coins_today + c, p.xp_today + x, p.drops_today, userId]
           );
           await logActivity(db, userId, 'dungeon_floor', String(boss.floor));
           streak = await touchStreak(db, userId);
