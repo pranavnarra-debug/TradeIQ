@@ -173,6 +173,13 @@ export class Brain {
   async exam(unitId) {
     const ex = (await this.api('GET', `/lessons/exam/${unitId}`)).data;
     if (!ex.token) return;
+    // Exams use each chapter's own question bank, taught in the lesson text rather than the
+    // quizzes. shared.examBank (question -> right answer) stands in for having read it:
+    // a player knows each one with their skill level.
+    for (const q of ex.questions) {
+      const key = String(q.q).trim();
+      if (!this.known.has(key) && this.shared.examBank?.has(key) && chance(this.p.skill)) this.known.set(key, this.shared.examBank.get(key));
+    }
     const answers = ex.questions.map((q) => {
       const want = this.known.get(String(q.q).trim());
       const i = want ? q.options.findIndex((o) => String(o).trim() === want) : -1;

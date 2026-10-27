@@ -18,6 +18,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { UNITS, bossPool } from '../content/index.js';
 import { Brain, makePersona, makeUsername, stayOdds, chance, sleep } from '../services/rivalBrain.js';
 
 dotenv.config();
@@ -103,7 +104,9 @@ async function advanceDay(db) {
 
 // ---------------------------------------------------------------- one player
 const stats = { requests: 0, errors: {}, fights: [], exams: [], lessonsFailed: 0, trades: 0, buys: 0, claims: 0 };
-const shared = { catalog: null, lessonCache: new Map(), stats, fastFights: true };
+const examBank = new Map();
+for (const u of UNITS) for (const q of bossPool(u.id)) examBank.set(String(q.q).trim(), String(q.options[q.answer]).trim());
+const shared = { catalog: null, lessonCache: new Map(), stats, fastFights: true, examBank };
 
 class Player {
   constructor() {

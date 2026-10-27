@@ -1057,7 +1057,7 @@ const Battle = (() => {
   // Read-only snapshot for automated play-tests.
   function debug() {
     if (!S) return null;
-    return { bossActive: S.bossActive, wave: S.waveNo, mobs: S.mobs.map((m) => ({ x: m.x, y: m.y, hp: m.hp, type: m.type, elite: m.elite })), boss: { x: S.b.x, y: S.b.y, hp: Math.round(S.b.hp) }, player: { x: S.p.x, y: S.p.y, hp: Math.round(S.p.hp), maxHp: S.p.maxHp, pips: S.p.pips, streak: S.p.streak, shield: S.p.shield, doubleReady: S.p.doubleReady, lastStands: S.p.lastStands }, discount: S.t <= S.discountT, dots: S.dots.length, tele: S.b.tele && S.b.tele.total, timed: S.loadout.effects.filter((e) => e.duration).map((e) => ({ type: e.type, duration: e.duration, expired: !!e.expired })), bullets: S.bullets.length, over: S.over, t: S.t, W, H };
+    return { bossActive: S.bossActive, wave: S.waveNo, mobs: S.mobs.map((m) => ({ x: m.x, y: m.y, hp: m.hp, type: m.type, elite: m.elite })), boss: { x: S.b.x, y: S.b.y, hp: Math.round(S.b.hp) }, player: { x: S.p.x, y: S.p.y, hp: Math.round(S.p.hp), maxHp: S.p.maxHp, pips: S.p.pips, streak: S.p.streak, shield: S.p.shield, doubleReady: S.p.doubleReady, lastStands: S.p.lastStands }, discount: S.t <= S.discountT, dots: S.dots.length, tele: S.b.tele && S.b.tele.total, timed: S.loadout.effects.filter((e) => e.duration).map((e) => ({ type: e.type, duration: e.duration, expired: !!e.expired })), floaters: S.floaters.map((f) => f.text), bullets: S.bullets.length, over: S.over, t: S.t, W, H };
   }
 
   return { run, stop, debug };

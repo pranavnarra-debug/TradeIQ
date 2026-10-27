@@ -16,11 +16,53 @@ import { query, withTransaction } from '../db/pool.js';
 import { config } from '../config.js';
 import { signAccessToken } from '../services/tokens.js';
 import { APPEARANCE } from '../services/game.js';
-import { Brain, stayOdds } from '../services/rivalBrain.js';
+import { UNITS, bossPool } from '../content/index.js';
+import { onlineUsers, presenceChanged } from '../services/presence.js';
+import { Brain, stayOdds, makePersona, makeUsername, pick, chance } from '../services/rivalBrain.js';
 
 const BASE = () => `http://127.0.0.1:${config.port}/api`;
-const AT_ONCE = 4;
-const shared = { catalog: null, lessonCache: new Map(), stats: { errors: {} } };
+const AT_ONCE = 6;
+const shared = { catalog: null, lessonCache: new Map(), stats: { errors: {} }, examBank: examBank() };
+
+/** question text -> right answer, for every unit exam question (see Brain.exam). */
+function examBank() {
+  const bank = new Map();
+  for (const u of UNITS) for (const q of bossPool(u.id)) bank.set(String(q.q).trim(), String(q.options[q.answer]).trim());
+  return bank;
+}
+
+// ---------------------------------------------------------------- presence
+// Rivals show up in "Online now" while they play, and browse for a while after.
+const PAGE_FOR = [[/^\/lessons/, 'learn'], [/^\/battles/, 'arena'], [/^\/quests/, 'arena'], [/^\/game/, 'hideout'], [/^\/portfolio/, 'trade']];
+const lingerTimers = new Map();
+
+function goOnline(rival, page = 'learn') {
+  const now = new Date().toISOString();
+  const cur = onlineUsers.get(rival.user_id);
+  if (cur && cur.socketId !== 'rival') return; // a real socket for this id wins
+  clearTimeout(lingerTimers.get(rival.user_id));
+  onlineUsers.set(rival.user_id, { username: rival.username, socketId: 'rival', connectedAt: cur?.connectedAt || now, lastActivity: now, currentPage: page });
+  presenceChanged();
+}
+function setPage(userId, page) {
+  const info = onlineUsers.get(userId);
+  if (info?.socketId === 'rival' && info.currentPage !== page) { info.currentPage = page; info.lastActivity = new Date().toISOString(); presenceChanged(); }
+}
+function goOfflineIn(userId, ms) {
+  clearTimeout(lingerTimers.get(userId));
+  lingerTimers.set(userId, setTimeout(() => {
+    lingerTimers.delete(userId);
+    if (onlineUsers.get(userId)?.socketId === 'rival') { onlineUsers.delete(userId); presenceChanged(); }
+  }, ms));
+}
+const rivalsOnline = () => [...onlineUsers.values()].filter((i) => i.socketId === 'rival').length;
+
+/** How many rivals should be around at this hour (New York time): busy evenings, quiet nights. */
+function onlineTarget(now = localNow('America/New_York')) {
+  const h = Math.floor(now.minute / 60);
+  const base = h < 6 ? 3 : h < 9 ? 6 : h < 15 ? 10 : h < 23 ? 16 : 6;
+  return base + Math.floor(unit(`online:${now.day}:${h}`) * 6);
+}
 let running = false;
 
 function unit(seed) {
@@ -36,6 +78,9 @@ function localNow(tz) {
 /** True when this rival should start today's session now. */
 export function isDue(rival, now = localNow(rival.persona.tz || 'America/New_York')) {
   if (rival.last_played_day === now.day) return false;
+  // Brand-new players always try it out the day they sign up, a few minutes in.
+  const ageMin = (Date.now() - new Date(rival.created_at).getTime()) / 60000;
+  if (ageMin < 24 * 60 && !rival.last_played_day) return ageMin >= 2;
   const daysIn = Math.floor((Date.now() - new Date(rival.created_at).getTime()) / 86400000);
   if (unit(`${rival.user_id}:${now.day}:play`) >= stayOdds(rival.persona, daysIn)) return false;
   const start = 7 * 60 + Math.floor(unit(`${rival.user_id}:${now.day}:at`) * 16.5 * 60); // 7:00 to 23:30 local
@@ -53,6 +98,8 @@ async function loadCatalog() {
 async function playSession(rival) {
   const user = { id: rival.user_id, username: rival.username, role: 'user' };
   const api = async (method, url, body) => {
+    const page = PAGE_FOR.find(([re]) => re.test(url));
+    if (page && !rival.browseOnly) setPage(rival.user_id, page[1]);
     const res = await fetch(BASE() + url, {
       method,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${signAccessToken(user)}` },
@@ -66,22 +113,97 @@ async function playSession(rival) {
   brain.styled = true;
   // Playing counts as being active, like a person logging in.
   await query('UPDATE users SET last_login = NOW() WHERE id = $1', [rival.user_id]);
-  await brain.loadProgress();
-  await brain.play();
+  goOnline(rival, rival.browseOnly ? pick(['learn', 'learn', 'hideout', 'arena', 'ranks', 'trade', 'me']) : 'learn');
+  try {
+    await brain.loadProgress();
+    if (rival.browseOnly) await brain.quests();
+    else await brain.play();
+  } finally {
+    // stick around a few minutes after, like people do
+    goOfflineIn(rival.user_id, (rival.browseOnly ? 8 + crypto.randomInt(18) : 3 + crypto.randomInt(13)) * 60000);
+  }
 }
+
+/** Keeps a believable number of rivals online: tops up with short browsing visits. */
+async function keepCompany(rows, run) {
+  const need = onlineTarget() - rivalsOnline();
+  if (need <= 0) return;
+  const idle = rows.filter((r) => !onlineUsers.has(r.user_id));
+  for (let i = 0; i < Math.min(need, 4) && idle.length; i++) {
+    const r = idle.splice(crypto.randomInt(idle.length), 1)[0];
+    run({ ...r, browseOnly: true });
+  }
+}
+
+// ---------------------------------------------------------------- new signups
+// New rivals join every day (10-40, set per day), spread from 8:00 to
+// 23:00 New York time, so the player count keeps growing like a real site.
+let lockedHash = null;
+
+function signupPlan(now = localNow('America/New_York')) {
+  const total = 10 + Math.floor(unit(`signups:${now.day}`) * 31); // 10-40 a day
+  const open = 8 * 60; const close = 23 * 60;
+  const frac = Math.max(0, Math.min(1, (now.minute - open) / (close - open)));
+  return { day: now.day, total, dueByNow: Math.floor(total * frac + 1e-9) };
+}
+
+/** `now` is only for tests: { day: 'YYYY-MM-DD', minute } in New York time. */
+export async function signUpRivals(now) {
+  const plan = signupPlan(now);
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS n FROM ai_rivals
+     WHERE persona->>'joined' = 'live' AND (created_at AT TIME ZONE 'America/New_York')::date = $1::date`,
+    [plan.day]
+  );
+  let missing = plan.dueByNow - rows[0].n;
+  if (missing <= 0) return 0;
+  missing = Math.min(missing, 3); // at most a few per tick, so they don't arrive in a clump
+  lockedHash ||= await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+  const taken = new Set((await query('SELECT LOWER(username) AS u FROM users')).rows.map((r) => r.u));
+  for (let i = 0; i < missing; i++) {
+    const persona = { ...makePersona(), joined: 'live' };
+    const name = makeUsername(taken);
+    const look = chance(0.6) ? Object.fromEntries(Object.entries(APPEARANCE).map(([k, opts]) => [k, pick(opts)])) : {};
+    await withTransaction(async (db) => {
+      const ins = await db.query(
+        `INSERT INTO users (username, email, password_hash, role, email_verified, recovery_code_hash, terms_accepted_at, terms_version,
+           age_confirmed, email_unsubscribe_token, email_opt_in, timezone, avatar_config, last_login, is_bot)
+         VALUES ($1, NULL, $2, 'user', FALSE, $2, NOW(), $3, TRUE, $4, FALSE, $5, $6, NOW(), TRUE) RETURNING id`,
+        [name, lockedHash, config.termsVersion, crypto.randomBytes(24).toString('hex'), persona.tz, JSON.stringify(look)]
+      );
+      const id = ins.rows[0].id;
+      await db.query(
+        `INSERT INTO portfolios (user_id, portfolio_type, name, starting_capital, cash)
+         VALUES ($1, 'manual', 'My Trading Desk', 50000, 50000), ($1, 'ai', 'Bolt the Bot', 100000, 100000)`,
+        [id]
+      );
+      await db.query('INSERT INTO ai_rivals (user_id, persona) VALUES ($1, $2)', [id, JSON.stringify(persona)]);
+    });
+  }
+  return missing;
+}
+
+const browsing = new Set();
 
 /** `force` (tests/manual runs): play up to `force` rivals now, ignoring the schedule. */
 export async function runRivalsTick({ force = 0 } = {}) {
-  if (running) return;
-  running = true;
   try {
+    // These run every tick, even while a long batch of play sessions is still going.
+    await signUpRivals().catch((err) => console.error('[rivals] signups failed:', err.message));
     const { rows } = await query(
       `SELECT r.user_id, r.persona, r.last_played_day::text AS last_played_day, u.created_at, u.username
        FROM ai_rivals r JOIN users u ON u.id = r.user_id WHERE r.active AND u.is_active AND u.is_bot`
     );
-    const due = force ? rows.slice(0, force) : rows.filter((r) => { try { return isDue(r); } catch { return false; } });
-    if (!due.length) return;
     if (!shared.catalog) await loadCatalog();
+    await keepCompany(rows, (r) => {
+      if (browsing.has(r.user_id)) return;
+      browsing.add(r.user_id);
+      playSession(r).catch((err) => console.error(`[rivals] ${r.username}: ${err.message}`)).finally(() => browsing.delete(r.user_id));
+    });
+
+    if (running) return;
+    running = true;
+    const due = force ? rows.slice(0, force) : rows.filter((r) => { try { return isDue(r); } catch { return false; } });
     let i = 0;
     await Promise.all(Array.from({ length: Math.min(AT_ONCE, due.length) }, async () => {
       while (i < due.length) {
@@ -92,10 +214,10 @@ export async function runRivalsTick({ force = 0 } = {}) {
         await playSession(r).catch((err) => console.error(`[rivals] ${r.username}: ${err.message}`));
       }
     }));
-  } catch (err) {
-    console.error('[rivals] tick failed:', err.message);
-  } finally {
     running = false;
+  } catch (err) {
+    running = false;
+    console.error('[rivals] tick failed:', err.message);
   }
 }
 

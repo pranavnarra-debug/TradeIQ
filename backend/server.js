@@ -27,6 +27,7 @@ import { startMarketCacheJobs } from './jobs/marketCache.js';
 import { startDataRetentionJobs } from './jobs/dataRetention.js';
 import { startEmailJobs } from './jobs/emailJobs.js';
 import { startRivalJobs } from './jobs/rivals.js';
+import { onlineUsers, onPresenceChange } from './services/presence.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -169,7 +170,6 @@ const io = new SocketIOServer(server, {
   maxHttpBufferSize: 10_000,
 });
 
-const onlineUsers = new Map();
 app.set('onlineUsers', onlineUsers);
 app.set('io', io);
 
@@ -182,6 +182,7 @@ function broadcastPresence() {
   io.to('admins').emit('online_count', onlineUsers.size);
   io.to('admins').emit('admin_online_users', adminOnlineList());
 }
+onPresenceChange(broadcastPresence);
 
 io.use(async (socket, next) => {
   try {
