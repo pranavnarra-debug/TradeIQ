@@ -97,6 +97,7 @@ const Ranks = (() => {
           ${tab === 'weekly' ? list(data.weekly, 'xp') : list(data.allTime, 'xp')}
           <hr class="divider"><div class="rank-summary"><b>You</b><span class="mono">${data.me.week_xp} XP this week · #${data.me.all_time_rank} all time</span></div>
           ${me.showOnLeaderboard ? '' : '<p class="muted" style="font-size:14px">You are hidden from the leaderboard. Change that in Settings.</p>'}
+          <p class="muted" style="font-size:13px;margin-top:10px">${Sprites.icon('bolt', 14)} Leaderboards include AI rivals: computer players who learn and fight by the same rules you do, so there's always someone to chase.</p>
         </div></div>`;
       view.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { tab = b.dataset.t; draw(); });
     }

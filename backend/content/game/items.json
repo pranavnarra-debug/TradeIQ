@@ -190,6 +190,71 @@
         { "pieces": 2, "text": "Locked-In Price: +5 defense.", "stats": { "defense": 5 }, "effects": [] },
         { "pieces": 4, "text": "Fully Hedged: take 30% less damage and deal 15% less damage. Steady beats spectacular.", "stats": { "defense": 3 }, "effects": [ { "type": "damage_reduction", "value": 30, "text": "Take 30% less damage from every source." }, { "type": "damage_dealt_mod", "value": -15, "text": "Deal 15% less damage." } ] }
       ]
+    },
+    {
+      "id": "autopay-armor",
+      "name": "Autopay Armor",
+      "world": 1,
+      "theme": "Clockwork-blue plate that pays every bill on the dot, whether you remembered or not. It ticks. Quietly. Constantly.",
+      "lesson": "Automating bills and savings means on-time payments happen even on the days you forget.",
+      "palette": { "A": "#2F80ED", "B": "#E6F0FA", "C": "#27AE60" },
+      "dungeon": true,
+      "bonuses": [
+        { "pieces": 2, "text": "Set and Forget: +2 defense.", "stats": { "defense": 2 }, "effects": [] },
+        { "pieces": 4, "text": "Never Late: every correct answer pays you a 3-HP shield, like a bill that pays itself.", "stats": { "focus": 1 }, "effects": [ { "type": "shield_on_correct", "value": 3, "text": "Gain a 3-HP shield after each correct answer." } ] }
+      ]
+    },
+    {
+      "id": "debt-avalanche",
+      "name": "Debt Avalanche",
+      "world": 1,
+      "theme": "Snow-white plate with red warning stripes. It starts at the top of the mountain, where the interest is highest, and rolls downhill from there.",
+      "lesson": "The avalanche method pays off the highest-interest debt first, which saves the most money overall.",
+      "palette": { "A": "#DDE6EE", "B": "#B23A48", "C": "#3A4A5C" },
+      "dungeon": true,
+      "bonuses": [
+        { "pieces": 2, "text": "Biggest Rate First: +2 power.", "stats": { "power": 2 }, "effects": [] },
+        { "pieces": 4, "text": "Avalanche: your first correct answer of each fight hits the most expensive debt for +35% damage.", "stats": { "power": 1 }, "effects": [ { "type": "first_strike", "value": 35, "text": "Your first correct answer of each fight deals +35% damage." } ] }
+      ]
+    },
+    {
+      "id": "credit-builder",
+      "name": "Credit Builder",
+      "world": 1,
+      "theme": "Navy-and-gold scaffolding armor that gets sturdier one on-time payment at a time. Bolt did the rivets.",
+      "lesson": "A credit score is built mostly by paying on time and keeping balances low, and it grows slowly over years.",
+      "palette": { "A": "#1E3A5F", "B": "#D4AF37", "C": "#4CAF7A" },
+      "dungeon": true,
+      "bonuses": [
+        { "pieces": 2, "text": "Payment History: +1 defense, +1 focus.", "stats": { "defense": 1, "focus": 1 }, "effects": [] },
+        { "pieces": 4, "text": "Good Standing: every 3 correct answers in a row heals 6 HP. Consistency is the whole score.", "stats": { "defense": 1 }, "effects": [ { "type": "heal_on_streak", "value": 6, "text": "Heal 6 HP after 3 correct answers in a row." } ] }
+      ]
+    },
+    {
+      "id": "fine-print",
+      "name": "Fine Print",
+      "world": 1,
+      "theme": "Parchment-colored scholar's gear covered in footnotes, asterisks and very small writing. Hoot's idea of a party outfit.",
+      "lesson": "Fees, rates and penalties hide in the terms; reading them before you sign is the cheapest protection there is.",
+      "palette": { "A": "#F3E5C3", "B": "#2B2B3A", "C": "#C0392B" },
+      "dungeon": true,
+      "bonuses": [
+        { "pieces": 2, "text": "Read It Twice: +2 focus.", "stats": { "focus": 2 }, "effects": [] },
+        { "pieces": 4, "text": "Asterisk Spotted: +4 seconds on hard questions, and once per fight Hoot crosses out a wrong answer.", "stats": {}, "effects": [ { "type": "time_bonus", "value": 4, "text": "+4 seconds on hard questions." }, { "type": "hint", "value": 1, "text": "Once per fight, remove 1 wrong answer from a question." } ] }
+      ]
+    },
+    {
+      "id": "cooling-off",
+      "name": "Cooling-Off Period",
+      "world": 1,
+      "theme": "Mint-cool lounge armor for players who sleep on every big decision. Nothing about it is in a hurry, including the drop rate.",
+      "lesson": "Waiting 24 to 48 hours before a non-essential purchase lets the urge fade, so you only buy what you still want.",
+      "palette": { "A": "#A8E6CF", "B": "#355C7D", "C": "#F8B195" },
+      "dungeon": true,
+      "bonuses": [
+        { "pieces": 2, "text": "Sleep On It: +2 defense, +1 focus.", "stats": { "defense": 2, "focus": 1 }, "effects": [] },
+        { "pieces": 4, "text": "The Urge Passed: no single boss hit can take more than 18% of your max HP. A spending limit per purchase, not per month.", "stats": { "defense": 1 }, "effects": [ { "type": "damage_cap", "value": 18, "text": "No single boss hit can take more than 18% of your max HP." } ] }
+      ]
     }
   ],
   "items": [
@@ -824,6 +889,517 @@
       "unlock": "achievement: all_units (Grand Champion)",
       "lesson": "Real financial confidence comes from understanding the whole system, from savings accounts to futures.",
       "flavor": "Earned, never bought. There's no price tag. Literally."
+    },
+    {
+      "id": "autopay-visor", "name": "Autopay Visor", "slot": "helmet", "set": "autopay-armor", "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 1, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "buffer_hp", "value": 5, "text": "Start each fight with a 5-HP buffer." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "A reminder set a few days before each due date gives you time to move money before a bill is late.",
+      "flavor": "Beeps three days early. Then beeps again. Then beeps until you pay."
+    },
+    {
+      "id": "autopay-breastplate", "name": "Autopay Breastplate", "slot": "chest", "set": "autopay-armor", "rarity": "epic", "world": 1, "price": 0, "minFloor": 12,
+      "stats": { "power": 1, "defense": 4, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "heal_on_streak", "value": 5, "text": "Heal 5 HP after 3 correct answers in a row." } ],
+      "unlock": "dungeon: drops from floor 12 and deeper",
+      "lesson": "Automatic transfers on payday move your savings first, before the money has a chance to get spent.",
+      "flavor": "Gets a little heavier every two weeks. In a good way."
+    },
+    {
+      "id": "autopay-greaves", "name": "Autopay Greaves", "slot": "legs", "set": "autopay-armor", "rarity": "rare", "world": 1, "price": 0, "minFloor": 6,
+      "stats": { "power": 0, "defense": 2, "focus": 2, "luck": 1 },
+      "effects": [ { "type": "time_bonus", "value": 3, "text": "+3 seconds on hard questions." } ],
+      "unlock": "dungeon: drops from floor 6 and deeper",
+      "lesson": "Autopay for the minimum plus a manual extra payment means you are never late and still pay the balance down fast.",
+      "flavor": "The knees click on the first of every month."
+    },
+    {
+      "id": "autopay-boots", "name": "Autopay Boots", "slot": "boots", "set": "autopay-armor", "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 1, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "heal_on_streak", "value": 3, "text": "Heal 3 HP after 3 correct answers in a row." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Late fees are one of the most avoidable costs in money: automate the payment and they never happen.",
+      "flavor": "They walk to the mailbox by themselves. Slightly unsettling."
+    },
+    {
+      "id": "avalanche-helm", "name": "Avalanche Helm", "slot": "helmet", "set": "debt-avalanche", "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 2,
+      "stats": { "power": 2, "defense": 1, "focus": 0, "luck": 0 },
+      "effects": [ { "type": "crit_damage", "value": 10, "text": "Critical hits deal +10% damage." } ],
+      "unlock": "dungeon: drops from floor 2 and deeper",
+      "lesson": "List every debt by its interest rate (APR); the one at the top of that list is costing you the most.",
+      "flavor": "Comes with a tiny avalanche warning sign. It is for the debts, not for you."
+    },
+    {
+      "id": "avalanche-hauberk", "name": "Avalanche Hauberk", "slot": "chest", "set": "debt-avalanche", "rarity": "rare", "world": 1, "price": 0, "minFloor": 8,
+      "stats": { "power": 2, "defense": 2, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "streak_damage", "value": 4, "text": "+4% damage per consecutive correct answer (up to 5 stacks)." } ],
+      "unlock": "dungeon: drops from floor 8 and deeper",
+      "lesson": "When one debt is paid off, roll its whole payment onto the next one, so each payoff comes faster than the last.",
+      "flavor": "Chainmail, but every link is a cancelled balance."
+    },
+    {
+      "id": "avalanche-legguards", "name": "Avalanche Legguards", "slot": "legs", "set": "debt-avalanche", "rarity": "epic", "world": 1, "price": 0, "minFloor": 14,
+      "stats": { "power": 3, "defense": 2, "focus": 1, "luck": 1 },
+      "effects": [ { "type": "crit_damage", "value": 20, "text": "Critical hits deal +20% damage." } ],
+      "unlock": "dungeon: drops from floor 14 and deeper",
+      "lesson": "Paying off a card that charges 24% APR is like earning a guaranteed 24% return; almost no investment reliably beats that.",
+      "flavor": "Heavy. Ruthless. Always starts at the top."
+    },
+    {
+      "id": "avalanche-crampons", "name": "Avalanche Crampons", "slot": "boots", "set": "debt-avalanche", "rarity": "common", "world": 1, "price": 0, "minFloor": 2,
+      "stats": { "power": 1, "defense": 0, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "first_strike", "value": 10, "text": "Your first correct answer of each fight deals +10% damage." } ],
+      "unlock": "dungeon: drops from floor 2 and deeper",
+      "lesson": "Keep paying at least the minimum on every debt so fees stay away while your extra money attacks the highest rate.",
+      "flavor": "Spiky, grippy, and only climbing one debt at a time."
+    },
+    {
+      "id": "credit-check-circlet", "name": "Credit Check Circlet", "slot": "helmet", "set": "credit-builder", "rarity": "rare", "world": 1, "price": 0, "minFloor": 9,
+      "stats": { "power": 0, "defense": 2, "focus": 2, "luck": 1 },
+      "effects": [ { "type": "hint", "value": 1, "text": "Once per fight, remove 1 wrong answer from a question. You spotted the error on your report." } ],
+      "unlock": "dungeon: drops from floor 9 and deeper",
+      "lesson": "You can check your credit reports for free and dispute any mistakes you find on them.",
+      "flavor": "Reads your credit report so you do not have to. You should anyway."
+    },
+    {
+      "id": "credit-builder-vest", "name": "Credit Builder Vest", "slot": "chest", "set": "credit-builder", "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 3,
+      "stats": { "power": 0, "defense": 2, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "buffer_hp", "value": 6, "text": "Start each fight with a 6-HP buffer. Unused credit is breathing room." } ],
+      "unlock": "dungeon: drops from floor 3 and deeper",
+      "lesson": "Keeping your card balance under about 30% of the limit (lower is better) helps your credit score.",
+      "flavor": "Plenty of pockets. Most of them deliberately empty."
+    },
+    {
+      "id": "credit-builder-trousers", "name": "Credit Builder Trousers", "slot": "legs", "set": "credit-builder", "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 1, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "shield_on_correct", "value": 1, "text": "Gain a 1-HP shield after each correct answer." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "One small purchase paid in full every month builds payment history without ever costing you interest.",
+      "flavor": "Plain, sturdy, paid off."
+    },
+    {
+      "id": "long-history-boots", "name": "Long History Boots", "slot": "boots", "set": "credit-builder", "rarity": "epic", "world": 1, "price": 0, "minFloor": 16,
+      "stats": { "power": 1, "defense": 3, "focus": 2, "luck": 1 },
+      "effects": [ { "type": "damage_cap", "value": 20, "text": "No single boss hit can take more than 20% of your max HP." } ],
+      "unlock": "dungeon: drops from floor 16 and deeper",
+      "lesson": "The age of your credit accounts matters, so keeping your oldest no-fee card open usually helps your score.",
+      "flavor": "Older than you think. Comfier every year."
+    },
+    {
+      "id": "fine-print-spectacles", "name": "Fine Print Spectacles", "slot": "helmet", "set": "fine-print", "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 0, "focus": 2, "luck": 1 },
+      "effects": [],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "APR is the yearly cost of borrowing; APY includes compounding and is the number to compare for savings.",
+      "flavor": "Magnifies tiny text up to 400%. Also magnifies your own handwriting, sadly."
+    },
+    {
+      "id": "fine-print-robe", "name": "Fine Print Robe", "slot": "chest", "set": "fine-print", "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 4,
+      "stats": { "power": 0, "defense": 1, "focus": 2, "luck": 0 },
+      "effects": [ { "type": "time_bonus", "value": 2, "text": "+2 seconds on hard questions." } ],
+      "unlock": "dungeon: drops from floor 4 and deeper",
+      "lesson": "A '0% intro APR' ends on a set date; know that date and the rate that comes after it before you sign.",
+      "flavor": "Every thread is a footnote. Every footnote has a footnote."
+    },
+    {
+      "id": "asterisk-leggings", "name": "Asterisk Leggings", "slot": "legs", "set": "fine-print", "rarity": "rare", "world": 1, "price": 0, "minFloor": 7,
+      "stats": { "power": 0, "defense": 1, "focus": 3, "luck": 1 },
+      "effects": [ { "type": "dodge", "value": 6, "text": "6% chance to dodge a boss attack. You saw the fee coming." } ],
+      "unlock": "dungeon: drops from floor 7 and deeper",
+      "lesson": "A fee table lists every charge an account can make; if a deal hides its fee table, that's your answer.",
+      "flavor": "Covered in tiny stars. None of them are good news."
+    },
+    {
+      "id": "fine-print-loafers", "name": "Fine Print Loafers", "slot": "boots", "set": "fine-print", "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 1, "focus": 0, "luck": 1 },
+      "effects": [ { "type": "time_bonus", "value": 2, "text": "+2 seconds on hard questions." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Free trials often turn into paid plans automatically; set a reminder to cancel the day you sign up.",
+      "flavor": "Slow walkers. They stop to read every sign."
+    },
+    {
+      "id": "sleep-on-it-nightcap", "name": "Sleep-On-It Nightcap", "slot": "helmet", "set": "cooling-off", "rarity": "legendary", "world": 1, "price": 0, "minFloor": 20,
+      "stats": { "power": 2, "defense": 3, "focus": 4, "luck": 1 },
+      "effects": [ { "type": "second_chance", "value": 1, "text": "Once per fight, a wrong answer becomes a miss with no damage taken." } ],
+      "unlock": "dungeon: drops from floor 20 and deeper",
+      "lesson": "A cooling-off rule turns 'I need it now' into 'do I still want it on Thursday?', and most of the time you don't.",
+      "flavor": "Fluffy pom-pom. Infinite patience. Smells faintly of chamomile."
+    },
+    {
+      "id": "cart-abandoner-cardigan", "name": "Cart Abandoner Cardigan", "slot": "chest", "set": "cooling-off", "rarity": "epic", "world": 1, "price": 0, "minFloor": 18,
+      "stats": { "power": 1, "defense": 4, "focus": 2, "luck": 1 },
+      "effects": [ { "type": "dodge", "value": 8, "text": "8% chance to dodge a boss attack." } ],
+      "unlock": "dungeon: drops from floor 18 and deeper",
+      "lesson": "Removing saved card details from shopping sites adds just enough friction to stop most impulse buys.",
+      "flavor": "Seventeen items left in the cart. Zero regrets."
+    },
+    {
+      "id": "wishlist-slacks", "name": "Wishlist Slacks", "slot": "legs", "set": "cooling-off", "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 5,
+      "stats": { "power": 0, "defense": 2, "focus": 1, "luck": 0 },
+      "effects": [ { "type": "heal_on_streak", "value": 3, "text": "Heal 3 HP after 3 correct answers in a row." } ],
+      "unlock": "dungeon: drops from floor 5 and deeper",
+      "lesson": "Putting a want on a wishlist instead of in the cart separates the wanting from the spending.",
+      "flavor": "Deep pockets for wishes. No pockets for cards."
+    },
+    {
+      "id": "twenty-four-hour-slippers", "name": "24-Hour Slippers", "slot": "boots", "set": "cooling-off", "rarity": "rare", "world": 1, "price": 0, "minFloor": 10,
+      "stats": { "power": 0, "defense": 2, "focus": 2, "luck": 1 },
+      "effects": [ { "type": "shield_on_correct", "value": 2, "text": "Gain a 2-HP shield after each correct answer." } ],
+      "unlock": "dungeon: drops from floor 10 and deeper",
+      "lesson": "Unsubscribing from store emails removes the 'sale ends tonight' pressure from your inbox.",
+      "flavor": "You cannot sprint to checkout in slippers. That is the point."
+    },
+    {
+      "id": "price-check-cap", "name": "Price-Check Cap", "slot": "helmet", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 1, "defense": 0, "focus": 0, "luck": 1 },
+      "palette": { "A": "#E07A5F", "B": "#3D405B", "C": "#F2CC8F" },
+      "effects": [ { "type": "dodge", "value": 3, "text": "3% chance to dodge a boss attack." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "The unit price (cost per ounce, per load, per use) tells you which option is actually cheaper.",
+      "flavor": "Has a tiny shelf-tag clipped to the brim."
+    },
+    {
+      "id": "pay-stub-visor", "name": "Pay Stub Visor", "slot": "helmet", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 1, "focus": 1, "luck": 1 },
+      "palette": { "A": "#7FB069", "B": "#FAF3DD", "C": "#2E4057" },
+      "effects": [ { "type": "shield_on_correct", "value": 2, "text": "Gain a 2-HP shield after each correct answer." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Gross pay minus taxes and deductions is net pay, and net pay is the number you can actually budget.",
+      "flavor": "Printed with your gross pay. The fine print is your net pay."
+    },
+    {
+      "id": "overdraft-opt-out-helm", "name": "Overdraft Opt-Out Helm", "slot": "helmet", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 7,
+      "stats": { "power": 0, "defense": 3, "focus": 2, "luck": 0 },
+      "palette": { "A": "#3D8BFD", "B": "#17140F", "C": "#FFD23F" },
+      "effects": [ { "type": "damage_cap", "value": 22, "text": "No single boss hit can take more than 22% of your max HP." } ],
+      "unlock": "dungeon: drops from floor 7 and deeper",
+      "lesson": "You can opt out of overdraft coverage, so a card is declined instead of charging a $30-plus fee.",
+      "flavor": "Says DECLINED across the front. Proudly."
+    },
+    {
+      "id": "thrift-flip-hoodie", "name": "Thrift Flip Hoodie", "slot": "chest", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 1, "defense": 1, "focus": 0, "luck": 0 },
+      "palette": { "A": "#9B5DE5", "B": "#F15BB5", "C": "#FEE440" },
+      "effects": [ { "type": "first_strike", "value": 8, "text": "Your first correct answer of each fight deals +8% damage." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Buying used for things that lose value fast, like clothes, can cut the price in half or more.",
+      "flavor": "Four dollars. Tags still on. Legendary energy, common rarity."
+    },
+    {
+      "id": "paid-in-full-plate", "name": "Paid-in-Full Plate", "slot": "chest", "set": null, "rarity": "legendary", "world": 1, "price": 0, "minFloor": 26,
+      "stats": { "power": 2, "defense": 5, "focus": 2, "luck": 1 },
+      "palette": { "A": "#F5F7FA", "B": "#2FA36B", "C": "#E8B04B" },
+      "effects": [ { "type": "thorns", "value": 15, "text": "Reflect 15% of damage taken back at the boss. When you owe nothing, interest works for you." }, { "type": "steady", "value": 0, "text": "Damage can't vary: no crits and no glancing blows. Debt-free is steady, not flashy." } ],
+      "unlock": "dungeon: drops from floor 26 and deeper",
+      "lesson": "With no debt, every dollar of income is yours to save or invest instead of going to interest.",
+      "flavor": "Stamped PAID across the chest. The bank's least favorite armor."
+    },
+    {
+      "id": "side-hustle-joggers", "name": "Side Hustle Joggers", "slot": "legs", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 8,
+      "stats": { "power": 1, "defense": 1, "focus": 2, "luck": 1 },
+      "palette": { "A": "#FF7A45", "B": "#2B2B2B", "C": "#1FBF75" },
+      "effects": [ { "type": "dash_cooldown", "value": 15, "text": "Dash recharges 15% faster." } ],
+      "unlock": "dungeon: drops from floor 8 and deeper",
+      "lesson": "A side hustle's real pay is what's left after costs and taxes; set aside around a quarter of it for taxes.",
+      "flavor": "Built for running between two jobs and a group project."
+    },
+    {
+      "id": "sinking-fund-cargo-pants", "name": "Sinking Fund Cargo Pants", "slot": "legs", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 13,
+      "stats": { "power": 1, "defense": 3, "focus": 2, "luck": 1 },
+      "palette": { "A": "#6B7F5E", "B": "#D9C9A3", "C": "#C7362C" },
+      "effects": [ { "type": "second_chance", "value": 1, "text": "Once per fight, a wrong answer becomes a miss with no damage taken. You saved for this one months ago." } ],
+      "unlock": "dungeon: drops from floor 13 and deeper",
+      "lesson": "A sinking fund saves a little each month for a known future cost (car repairs, gifts), so it never becomes an emergency.",
+      "flavor": "Twelve pockets, each labeled with a month."
+    },
+    {
+      "id": "thrift-store-kicks", "name": "Thrift Store Kicks", "slot": "boots", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 1, "defense": 0, "focus": 0, "luck": 1 },
+      "palette": { "A": "#FFFAF0", "B": "#FF5A4E", "C": "#3D8BFD" },
+      "effects": [ { "type": "streak_damage", "value": 2, "text": "+2% damage per consecutive correct answer (up to 5 stacks)." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "The cheapest version of something is the one you already own or can borrow.",
+      "flavor": "Previously owned by someone with excellent taste."
+    },
+    {
+      "id": "index-fund-treads", "name": "Index Fund Treads", "slot": "boots", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 14,
+      "stats": { "power": 2, "defense": 2, "focus": 3, "luck": 0 },
+      "palette": { "A": "#2F3E66", "B": "#C0C7D1", "C": "#1FBF75" },
+      "effects": [ { "type": "buffer_hp", "value": 12, "text": "Start each fight with a 12-HP buffer." } ],
+      "unlock": "dungeon: drops from floor 14 and deeper",
+      "lesson": "A low-cost index fund owns hundreds of companies at once, so no single company can sink you.",
+      "flavor": "Five hundred tiny treads. If one wears out, you barely notice."
+    },
+    {
+      "id": "budget-pencil", "name": "Budget Pencil", "slot": "weapon", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 1, "defense": 0, "focus": 2, "luck": 0 },
+      "palette": { "A": "#FFD23F", "B": "#F4A7B9", "C": "#17140F" },
+      "effects": [ { "type": "time_bonus", "value": 2, "text": "+2 seconds on hard questions." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Writing a budget down, even on paper, makes you spend on purpose instead of by accident.",
+      "flavor": "Eraser worn down to the metal. Every budget is a first draft."
+    },
+    {
+      "id": "coupon-dagger", "name": "Coupon Dagger", "slot": "weapon", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 2, "defense": 0, "focus": 0, "luck": 0 },
+      "palette": { "A": "#E8577A", "B": "#FFFAF0", "C": "#12985A" },
+      "effects": [ { "type": "first_strike", "value": 10, "text": "Your first correct answer of each fight deals +10% damage." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "A coupon only saves money if you were going to buy the thing anyway.",
+      "flavor": "Cuts along the dotted line. And through bosses."
+    },
+    {
+      "id": "spare-change-wand", "name": "Spare Change Wand", "slot": "weapon", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 2,
+      "stats": { "power": 2, "defense": 0, "focus": 1, "luck": 1 },
+      "palette": { "A": "#B87333", "B": "#C0C7D1", "C": "#FFD23F" },
+      "effects": [ { "type": "heal_on_streak", "value": 3, "text": "Heal 3 HP after 3 correct answers in a row." } ],
+      "unlock": "dungeon: drops from floor 2 and deeper",
+      "lesson": "Rounding purchases up and saving the change turns tiny amounts into a real balance over a year.",
+      "flavor": "Jingles when waved. Rounds every spell up to the nearest dollar."
+    },
+    {
+      "id": "price-match-spear", "name": "Price-Match Spear", "slot": "weapon", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 3,
+      "stats": { "power": 3, "defense": 0, "focus": 0, "luck": 1 },
+      "palette": { "A": "#4F7CFF", "B": "#6B7280", "C": "#FF5A4E" },
+      "effects": [ { "type": "dodge", "value": 4, "text": "4% chance to dodge a boss attack." } ],
+      "unlock": "dungeon: drops from floor 3 and deeper",
+      "lesson": "Many stores will match a competitor's lower price if you ask, and asking is free.",
+      "flavor": "Points at the cheaper price. Politely. Repeatedly."
+    },
+    {
+      "id": "bargain-axe", "name": "Bargain Axe", "slot": "weapon", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 4,
+      "stats": { "power": 3, "defense": 1, "focus": 0, "luck": 0 },
+      "palette": { "A": "#8C3B2E", "B": "#C9A66B", "C": "#F2F2F2" },
+      "effects": [ { "type": "damage_reduction", "value": 3, "text": "Take 3% less damage from every source." } ],
+      "unlock": "dungeon: drops from floor 4 and deeper",
+      "lesson": "Calling to negotiate bills like phone and internet once a year often gets the price cut; just ask what offers they have.",
+      "flavor": "Chops prices. Mostly by asking nicely."
+    },
+    {
+      "id": "rate-shopper-bow", "name": "Rate Shopper's Bow", "slot": "weapon", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 6,
+      "stats": { "power": 3, "defense": 0, "focus": 2, "luck": 0 },
+      "palette": { "A": "#3E8E5E", "B": "#E3C16F", "C": "#F5F7FA" },
+      "effects": [ { "type": "shield_on_correct", "value": 2, "text": "Gain a 2-HP shield after each correct answer." } ],
+      "unlock": "dungeon: drops from floor 6 and deeper",
+      "lesson": "Comparing at least three offers for any loan, phone plan or insurance usually finds a noticeably better price.",
+      "flavor": "Three arrows, three quotes, one winner."
+    },
+    {
+      "id": "refinance-trident", "name": "Refinance Trident", "slot": "weapon", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 8,
+      "stats": { "power": 4, "defense": 0, "focus": 1, "luck": 0 },
+      "palette": { "A": "#1F8A8A", "B": "#F3E9D2", "C": "#E76F51" },
+      "effects": [ { "type": "buffer_hp", "value": 10, "text": "Start each fight with a 10-HP buffer. A lower rate frees up cash." } ],
+      "unlock": "dungeon: drops from floor 8 and deeper",
+      "lesson": "Refinancing replaces a loan with a cheaper one; a lower rate on a big balance can save thousands, after fees.",
+      "flavor": "Three prongs: rate, fees, and term. Check all three."
+    },
+    {
+      "id": "debt-snowball-sledge", "name": "Debt Snowball Hammer", "slot": "weapon", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 12,
+      "stats": { "power": 6, "defense": 0, "focus": 1, "luck": 0 },
+      "palette": { "A": "#7EC8E3", "B": "#5C6670", "C": "#F5F7FA" },
+      "effects": [ { "type": "dash_cooldown", "value": 15, "text": "Dash recharges 15% faster. Quick wins keep you moving." } ],
+      "unlock": "dungeon: drops from floor 12 and deeper",
+      "lesson": "The snowball method pays off the smallest balance first; it costs a bit more than the avalanche but the quick wins keep people going.",
+      "flavor": "Gets bigger every time it knocks something over."
+    },
+    {
+      "id": "opportunity-cost-scythe", "name": "Opportunity Cost Scythe", "slot": "weapon", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 15,
+      "stats": { "power": 6, "defense": 0, "focus": 2, "luck": 0 },
+      "palette": { "A": "#4B3F72", "B": "#17140F", "C": "#C0C7D1" },
+      "effects": [ { "type": "steady", "value": 0, "text": "Damage can't vary: no crits and no glancing blows. Choosing reliable damage means giving up crits." } ],
+      "unlock": "dungeon: drops from floor 15 and deeper",
+      "lesson": "Every choice costs the best thing you gave up to make it; that hidden price is the opportunity cost.",
+      "flavor": "Reaps what you didn't choose. Very philosophical. Very sharp."
+    },
+    {
+      "id": "compound-interest-greatsword", "name": "Compound Interest Greatsword", "slot": "weapon", "set": null, "rarity": "legendary", "world": 1, "price": 0, "minFloor": 23,
+      "stats": { "power": 8, "defense": 0, "focus": 2, "luck": 0 },
+      "palette": { "A": "#E8B04B", "B": "#2E2E38", "C": "#7EC8E3" },
+      "effects": [ { "type": "damage_dealt_mod", "value": 10, "text": "Deal 10% more damage." } ],
+      "unlock": "dungeon: drops from floor 23 and deeper",
+      "lesson": "At about 10% a year, money roughly doubles every 7 years, and most of the final pile is interest earned on interest.",
+      "flavor": "Forged one tiny layer at a time over a very long time. Mostly the second part."
+    },
+    {
+      "id": "return-policy-shield", "name": "Return Policy Shield", "slot": "offhand", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 1, "focus": 1, "luck": 0 },
+      "palette": { "A": "#C9D2DC", "B": "#2F3E66", "C": "#FF7A45" },
+      "effects": [ { "type": "thorns", "value": 5, "text": "Reflect 5% of damage taken back at the boss." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Keep receipts and check the return window; a return turns a bad buy back into money.",
+      "flavor": "30-day guarantee. Store credit not accepted."
+    },
+    {
+      "id": "spending-log", "name": "Spending Log", "slot": "offhand", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 0, "focus": 2, "luck": 0 },
+      "palette": { "A": "#5A3A1E", "B": "#ECE4D6", "C": "#12985A" },
+      "effects": [ { "type": "heal_on_streak", "value": 2, "text": "Heal 2 HP after 3 correct answers in a row." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Tracking every purchase for one month shows where your money really goes, which is rarely where you guessed.",
+      "flavor": "Coffee, coffee, snack, coffee. Hmm."
+    },
+    {
+      "id": "comparison-guidebook", "name": "Comparison Guidebook", "slot": "offhand", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 0, "defense": 1, "focus": 2, "luck": 0 },
+      "palette": { "A": "#8B5CF6", "B": "#FFFAF0", "C": "#FFD23F" },
+      "effects": [ { "type": "hint", "value": 1, "text": "Once per fight, remove 1 wrong answer from a question." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Reviews and price-history tools show whether a 'sale' price is actually a deal or just the normal price in a costume.",
+      "flavor": "Dog-eared on every page. Highlighted in three colors."
+    },
+    {
+      "id": "emergency-fund-lantern", "name": "Emergency Fund Lantern", "slot": "offhand", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 3,
+      "stats": { "power": 0, "defense": 2, "focus": 1, "luck": 0 },
+      "palette": { "A": "#F2C14E", "B": "#2B3A67", "C": "#FFFAF0" },
+      "effects": [ { "type": "buffer_hp", "value": 6, "text": "Start each fight with a 6-HP buffer." } ],
+      "unlock": "dungeon: drops from floor 3 and deeper",
+      "lesson": "One month of expenses saved is a great first goal; three to six months is the full emergency fund.",
+      "flavor": "Never runs out of light. Just needs a refill now and then."
+    },
+    {
+      "id": "cash-envelope-book", "name": "Cash Envelope Book", "slot": "offhand", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 5,
+      "stats": { "power": 1, "defense": 1, "focus": 2, "luck": 0 },
+      "palette": { "A": "#C8A165", "B": "#3E8E5E", "C": "#F2F2F2" },
+      "effects": [ { "type": "first_strike", "value": 12, "text": "Your first correct answer of each fight deals +12% damage." } ],
+      "unlock": "dungeon: drops from floor 5 and deeper",
+      "lesson": "With the envelope method, each spending category gets its own cash; when an envelope is empty, that category is done for the month.",
+      "flavor": "Every page is an envelope. One says FUN. It is always empty first."
+    },
+    {
+      "id": "deductible-shield", "name": "Deductible Shield", "slot": "offhand", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 6,
+      "stats": { "power": 0, "defense": 4, "focus": 1, "luck": 0 },
+      "palette": { "A": "#1D3557", "B": "#A8DADC", "C": "#E63946" },
+      "effects": [ { "type": "damage_cap", "value": 25, "text": "No single boss hit can take more than 25% of your max HP." } ],
+      "unlock": "dungeon: drops from floor 6 and deeper",
+      "lesson": "A deductible is what you pay before insurance kicks in; a higher deductible means a cheaper premium but a bigger bill when something happens.",
+      "flavor": "Absorbs everything above the first chunk. The first chunk is on you."
+    },
+    {
+      "id": "credit-freeze-shield", "name": "Credit Freeze Shield", "slot": "offhand", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 9,
+      "stats": { "power": 0, "defense": 3, "focus": 1, "luck": 1 },
+      "palette": { "A": "#A8DADC", "B": "#F5F7FA", "C": "#457B9D" },
+      "effects": [ { "type": "dodge", "value": 6, "text": "6% chance to dodge a boss attack. Identity thieves bounce right off." } ],
+      "unlock": "dungeon: drops from floor 9 and deeper",
+      "lesson": "Freezing your credit is free and stops anyone from opening new accounts in your name; you can unfreeze it whenever you need.",
+      "flavor": "Cold to the touch. Thieves hate it."
+    },
+    {
+      "id": "savings-goal-lantern", "name": "Savings Goal Lantern", "slot": "offhand", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 12,
+      "stats": { "power": 0, "defense": 4, "focus": 3, "luck": 0 },
+      "palette": { "A": "#FF7AB8", "B": "#2B2B2B", "C": "#FFD23F" },
+      "effects": [ { "type": "shield_on_correct", "value": 3, "text": "Gain a 3-HP shield after each correct answer." } ],
+      "unlock": "dungeon: drops from floor 12 and deeper",
+      "lesson": "Naming a goal and a date turns 'save more' into a monthly number you can actually hit.",
+      "flavor": "Glows brighter the closer you get. Very motivating. Slightly smug."
+    },
+    {
+      "id": "high-yield-shield", "name": "High-Yield Shield", "slot": "offhand", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 17,
+      "stats": { "power": 0, "defense": 5, "focus": 2, "luck": 1 },
+      "palette": { "A": "#12985A", "B": "#E8E8E8", "C": "#E8B04B" },
+      "effects": [ { "type": "streak_damage", "value": 4, "text": "+4% damage per consecutive correct answer (up to 5 stacks)." } ],
+      "unlock": "dungeon: drops from floor 17 and deeper",
+      "lesson": "High-yield savings accounts often pay several times more interest than a big bank's basic savings account, with the same safety.",
+      "flavor": "Same shield, ten times the shine."
+    },
+    {
+      "id": "net-worth-ledger", "name": "Net Worth Ledger", "slot": "offhand", "set": null, "rarity": "legendary", "world": 1, "price": 0, "minFloor": 30,
+      "stats": { "power": 1, "defense": 4, "focus": 4, "luck": 1 },
+      "palette": { "A": "#2B2B3A", "B": "#E8B04B", "C": "#F5F7FA" },
+      "effects": [ { "type": "time_bonus", "value": 5, "text": "+5 seconds on hard questions." }, { "type": "dash_cooldown", "value": 15, "text": "Dash recharges 15% faster." } ],
+      "unlock": "dungeon: drops from floor 30 and deeper",
+      "lesson": "Net worth is everything you own minus everything you owe; tracking it once a month shows if you are really moving forward.",
+      "flavor": "Two columns. One number. The whole picture."
+    },
+    {
+      "id": "late-fee-imp-horn", "name": "Late Fee Imp Horn", "slot": "trinket", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 1,
+      "stats": { "power": 1, "defense": 0, "focus": 1, "luck": 0 },
+      "palette": { "A": "#FF7A45", "B": "#FFD23F", "C": "#17140F" },
+      "effects": [ { "type": "time_bonus", "value": 2, "text": "+2 seconds on hard questions." } ],
+      "unlock": "dungeon: drops from floor 1 and deeper",
+      "lesson": "Most late fees are completely avoidable with autopay or a reminder set a few days before the due date.",
+      "flavor": "Still faintly whispering \"due yesterday\"."
+    },
+    {
+      "id": "impulse-goblin-receipt", "name": "Impulse Goblin's Receipt", "slot": "trinket", "set": null, "rarity": "common", "world": 1, "price": 0, "minFloor": 2,
+      "stats": { "power": 0, "defense": 1, "focus": 0, "luck": 1 },
+      "palette": { "A": "#12985A", "B": "#FFFAF0", "C": "#FF5A4E" },
+      "effects": [ { "type": "dodge", "value": 3, "text": "3% chance to dodge a boss attack." } ],
+      "unlock": "dungeon: drops from floor 2 and deeper",
+      "lesson": "A 24-hour pause before non-essential buys stops most impulse spending.",
+      "flavor": "Four feet long. Every item says FINAL SALE."
+    },
+    {
+      "id": "overdraft-ooze-jar", "name": "Overdraft Ooze Jar", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 3,
+      "stats": { "power": 0, "defense": 2, "focus": 0, "luck": 1 },
+      "palette": { "A": "#3D8BFD", "B": "#E6F0FA", "C": "#17140F" },
+      "effects": [ { "type": "buffer_hp", "value": 5, "text": "Start each fight with a 5-HP buffer." } ],
+      "unlock": "dungeon: drops from floor 3 and deeper",
+      "lesson": "Checking your balance before you spend, or keeping a small cushion in checking, keeps overdraft fees away.",
+      "flavor": "Lid screwed on tight. It still drips sometimes."
+    },
+    {
+      "id": "subscription-stinger", "name": "Subscription Stinger", "slot": "trinket", "set": null, "rarity": "uncommon", "world": 1, "price": 0, "minFloor": 4,
+      "stats": { "power": 1, "defense": 0, "focus": 1, "luck": 1 },
+      "palette": { "A": "#8B5CF6", "B": "#FFD23F", "C": "#2B2B2B" },
+      "effects": [ { "type": "dash_cooldown", "value": 10, "text": "Dash recharges 10% faster." } ],
+      "unlock": "dungeon: drops from floor 4 and deeper",
+      "lesson": "Audit your subscriptions every few months; $10 a month is $120 a year for something you may not use.",
+      "flavor": "Auto-renews its sting. Cancel anytime."
+    },
+    {
+      "id": "fomo-phantom-veil", "name": "FOMO Phantom Veil", "slot": "trinket", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 6,
+      "stats": { "power": 0, "defense": 1, "focus": 2, "luck": 2 },
+      "palette": { "A": "#E8577A", "B": "#FFFAF0", "C": "#4B3F72" },
+      "effects": [ { "type": "hint", "value": 1, "text": "Once per fight, remove 1 wrong answer from a question. You had a plan before the hype." } ],
+      "unlock": "dungeon: drops from floor 6 and deeper",
+      "lesson": "Buying something because it already went up a lot is buying high; decide your plan before the hype shows up.",
+      "flavor": "Whispers \"everyone else is doing it\". You have learned to ignore it."
+    },
+    {
+      "id": "hidden-fee-gear", "name": "Hidden Fee Gear", "slot": "trinket", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 7,
+      "stats": { "power": 0, "defense": 2, "focus": 2, "luck": 1 },
+      "palette": { "A": "#6B7280", "B": "#FF5A4E", "C": "#C0C7D1" },
+      "effects": [ { "type": "damage_reduction", "value": 4, "text": "Take 4% less damage from every source." } ],
+      "unlock": "dungeon: drops from floor 7 and deeper",
+      "lesson": "A 1% yearly fee sounds tiny, but over 30 years it can eat about a quarter of what an investment would have grown to.",
+      "flavor": "One tooth is missing. It was charging a maintenance fee."
+    },
+    {
+      "id": "lifestyle-creep-shell", "name": "Lifestyle Creep Shell", "slot": "trinket", "set": null, "rarity": "rare", "world": 1, "price": 0, "minFloor": 9,
+      "stats": { "power": 1, "defense": 1, "focus": 2, "luck": 1 },
+      "palette": { "A": "#FFD23F", "B": "#8B5CF6", "C": "#FFFAF0" },
+      "effects": [ { "type": "streak_damage", "value": 3, "text": "+3% damage per consecutive correct answer (up to 5 stacks)." } ],
+      "unlock": "dungeon: drops from floor 9 and deeper",
+      "lesson": "When your income goes up, raise your savings rate first and your spending second.",
+      "flavor": "Was a small shell once. Kept upgrading."
+    },
+    {
+      "id": "payday-leech-fang", "name": "Payday Leech Fang", "slot": "trinket", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 12,
+      "stats": { "power": 2, "defense": 2, "focus": 2, "luck": 1 },
+      "palette": { "A": "#C7362C", "B": "#FFD23F", "C": "#F5F7FA" },
+      "effects": [ { "type": "thorns", "value": 10, "text": "Reflect 10% of damage taken back at the boss. You bite back." } ],
+      "unlock": "dungeon: drops from floor 12 and deeper",
+      "lesson": "Payday loans can cost around 400% APR; even a small emergency fund keeps you from ever needing one.",
+      "flavor": "Pulled out painlessly. Unlike the loan."
+    },
+    {
+      "id": "minimum-payment-mask", "name": "Minimum Payment Mask", "slot": "trinket", "set": null, "rarity": "epic", "world": 1, "price": 0, "minFloor": 15,
+      "stats": { "power": 1, "defense": 3, "focus": 3, "luck": 0 },
+      "palette": { "A": "#2F3E66", "B": "#FF7AB8", "C": "#ECE4D6" },
+      "effects": [ { "type": "heal_on_streak", "value": 5, "text": "Heal 5 HP after 3 correct answers in a row." } ],
+      "unlock": "dungeon: drops from floor 15 and deeper",
+      "lesson": "Paying only $25 a month on a $1,000 card at 24% APR takes about 7 years and costs more in interest than the original $1,000.",
+      "flavor": "Smiles no matter what you owe. Very suspicious."
+    },
+    {
+      "id": "rug-pull-rat-tail", "name": "Rug Pull Rat Tail", "slot": "trinket", "set": null, "rarity": "legendary", "world": 1, "price": 0, "minFloor": 20,
+      "stats": { "power": 2, "defense": 2, "focus": 3, "luck": 3 },
+      "palette": { "A": "#9A6440", "B": "#1FBF75", "C": "#FFD23F" },
+      "effects": [ { "type": "damage_cap", "value": 20, "text": "No single boss hit can take more than 20% of your max HP. You never put in more than you could afford to lose." } ],
+      "unlock": "dungeon: drops from floor 20 and deeper",
+      "lesson": "Any investment that promises guaranteed huge returns is almost certainly a scam; real returns come with real risk.",
+      "flavor": "The rat ran. The tail stayed. Guaranteed."
     }
   ]
 }

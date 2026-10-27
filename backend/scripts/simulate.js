@@ -18,6 +18,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { Brain, makePersona, makeUsername, stayOdds, chance, sleep } from '../services/rivalBrain.js';
 
 dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -46,53 +47,10 @@ if (!['localhost', '127.0.0.1'].includes(baseUrl.hostname)) {
 const simUrl = new URL(baseUrl); simUrl.pathname = '/tradeiq_sim';
 const adminUrl = new URL(baseUrl); adminUrl.pathname = '/postgres';
 
-// ---------------------------------------------------------------- randomness
-const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
-const chance = (p) => Math.random() < p;
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-function weighted(obj) {
-  const total = Object.values(obj).reduce((s, v) => s + v, 0);
-  let r = Math.random() * total;
-  for (const [k, v] of Object.entries(obj)) { if ((r -= v) <= 0) return k; }
-  return Object.keys(obj)[0];
-}
-
 // ---------------------------------------------------------------- personas
-const FIRST = ['maya', 'sam', 'jo', 'alex', 'nina', 'leo', 'ava', 'kai', 'zoe', 'eli', 'mia', 'noah', 'ivy', 'omar', 'liam', 'emma', 'raj', 'sofia', 'theo', 'luna', 'max', 'aria', 'jay', 'ella', 'dev', 'nora', 'ben', 'lily', 'cole', 'ruby', 'ezra', 'jade', 'finn', 'isla', 'arjun', 'priya', 'diego', 'lucia', 'mateo', 'chloe', 'tyler', 'grace', 'ryan', 'hana', 'yuki', 'kofi', 'amara', 'sean', 'tess', 'drew'];
-const WORDS = ['stocks', 'invests', 'trader', 'bull', 'bear', 'money', 'cash', 'coin', 'value', 'chart', 'dip', 'hodl', 'alpha', 'gains', 'fund', 'saver', 'market', 'ticker', 'theta', 'candle', 'gold', 'wolf', 'moon', 'piggy', 'budget'];
 const usedNames = new Set();
-function username() {
-  for (;;) {
-    const f = pick(FIRST); const w = pick(WORDS); const n = Math.floor(rand(1, 2010));
-    const name = weighted({ a: 3, b: 3, c: 2, d: 2, e: 1 }) === 'a' ? `${f}${n}`
-      : weighted({ x: 1, y: 1 }) === 'x' ? `${f}_${w}` : chance(0.5) ? `${w}${f}${n % 100}` : `${f}${w}${n % 1000}`;
-    const clean = name.slice(0, 20);
-    if (clean.length >= 3 && !usedNames.has(clean)) { usedNames.add(clean); return clean; }
-  }
-}
-const TZ = { 'America/New_York': 5, 'America/Chicago': 3, 'America/Denver': 1, 'America/Los_Angeles': 3, 'Europe/London': 1, 'Asia/Kolkata': 1 };
-const TYPES = {
-  // share, chance of returning on a given day, lessons per session
-  tourist: { share: 0.35, stay: 0.18, pace: [1, 3] },
-  casual: { share: 0.38, stay: 0.5, pace: [1, 4] },
-  regular: { share: 0.21, stay: 0.8, pace: [2, 6] },
-  hardcore: { share: 0.06, stay: 0.95, pace: [4, 10] },
-};
 function persona() {
-  const type = weighted(Object.fromEntries(Object.entries(TYPES).map(([k, v]) => [k, v.share])));
-  const skill = Math.min(0.97, Math.max(0.35, rand(0.45, 0.9) + (type === 'hardcore' ? 0.06 : 0)));
-  return {
-    type,
-    skill, // chance of knowing an answer
-    dex: rand(0.1, 0.95), // dodging
-    aim: rand(0.45, 0.95),
-    grit: rand(0.3, 0.9), // retry after failing
-    journaler: rand(0, 1),
-    likes: { learn: rand(3, 6), arena: rand(0.5, 4), trade: rand(0.2, 3), hideout: rand(0.3, 2), quests: rand(1, 3) },
-    tz: weighted(TZ),
-    joinDay: 1 + Math.floor(Math.pow(Math.random(), 1.6) * Math.max(1, Math.ceil(DAYS * 0.6))),
-  };
+  return { ...makePersona(), joinDay: 1 + Math.floor(Math.pow(Math.random(), 1.6) * Math.max(1, Math.ceil(DAYS * 0.6))) };
 }
 
 // ---------------------------------------------------------------- sim server + database
@@ -145,30 +103,20 @@ async function advanceDay(db) {
 
 // ---------------------------------------------------------------- one player
 const stats = { requests: 0, errors: {}, fights: [], exams: [], lessonsFailed: 0, trades: 0, buys: 0, claims: 0 };
-let CATALOG; let ITEMS; let LESSON_ORDER;
-const LESSON_CACHE = new Map();
-const TICKERS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'SPY', 'QQQ', 'VOO', 'DIS', 'NKE', 'KO', 'COST', 'JPM', 'AMD', 'NFLX', 'SBUX', 'F', 'T'];
-const NOTES = [
-  'Buying because earnings beat and the trend is above the 50 day average. Stop below last swing low.',
-  'Small starter position, I like the long term story. Will add if it holds support.',
-  'Trying a breakout over resistance, stop just under the breakout level.',
-  'Index fund for the long run, not timing anything.',
-  'Taking profit, it hit my target and RSI looks stretched.',
-  'Cutting this, it broke my stop. Lesson learned about chasing.',
-];
+const shared = { catalog: null, lessonCache: new Map(), stats, fastFights: true };
 
 class Player {
   constructor() {
     this.p = persona();
-    this.name = username();
+    this.name = makeUsername(usedNames);
     this.password = `${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 8)}Q7`;
     this.cookie = ''; this.token = '';
-    this.known = new Map(); // question text -> correct option text (things this player has studied)
     this.active = true; this.joined = false;
-    this.done = new Set(); this.examPassed = new Set();
     this.daysPlayed = 0; this.lastDay = 0;
-    this.styled = false;
+    this.brain = new Brain({ persona: this.p, api: (m, u, body) => this.api(m, u, body), shared });
   }
+
+  get done() { return this.brain.done; }
 
   async api(method, url, body, { auth = true } = {}) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -208,200 +156,20 @@ class Player {
     return true;
   }
 
-  async session(day) {
-    if (!this.joined) { if (day < this.p.joinDay) return; if (!(await this.signUp())) return; }
-    else {
-      // churn: after the first day, people come back with their type's odds, fading slowly
-      const stay = TYPES[this.p.type].stay * Math.pow(0.97, day - this.p.joinDay);
-      if (!chance(stay)) { if (chance(0.25)) this.active = false; return; }
-      if (!(await this.refresh())) await this.login();
-    }
-    this.daysPlayed++; this.lastDay = day;
-    const [lo, hi] = TYPES[this.p.type].pace;
-    let actions = Math.round(rand(lo, hi)) + 2;
-    let lessonsToday = 0;
-    while (actions-- > 0) {
-      const what = weighted(this.p.likes);
-      try {
-        if (what === 'learn') lessonsToday += await this.learn();
-        else if (what === 'arena') await this.arena();
-        else if (what === 'trade') await this.trade();
-        else if (what === 'hideout') await this.hideout();
-        else await this.quests();
-      } catch (err) {
-        stats.errors[`${what}: ${err.message}`] = (stats.errors[`${what}: ${err.message}`] || 0) + 1;
-      }
-    }
-    if (lessonsToday || chance(0.5)) await this.quests();
-  }
-
   async login() {
     const r = await this.api('POST', '/auth/login', { username: this.name, password: this.password }, { auth: false });
     if (r.data.accessToken) this.token = r.data.accessToken;
   }
 
-  async lesson(id) {
-    if (!LESSON_CACHE.has(id)) LESSON_CACHE.set(id, (await this.api('GET', `/lessons/lesson/${id}`)).data);
-    return LESSON_CACHE.get(id);
-  }
-
-  study(lesson) {
-    for (const s of lesson.steps || []) {
-      for (const q of s.questions || (s.options ? [s] : [])) {
-        if (q.options && q.answer != null && chance(this.p.skill)) this.known.set(String(q.q || '').trim(), String(q.options[q.answer]).trim());
-      }
+  async session(day) {
+    if (!this.joined) { if (day < this.p.joinDay) return; if (!(await this.signUp())) return; }
+    else {
+      // after the first day, people come back with their type's odds, fading slowly
+      if (!chance(stayOdds(this.p, day - this.p.joinDay))) { if (chance(0.25)) this.active = false; return; }
+      if (!(await this.refresh())) await this.login();
     }
-  }
-
-  /** Plays the next lesson (mostly in order; some people skip around). */
-  async learn() {
-    const exam = this.examReady();
-    if (exam && chance(0.7)) { await this.exam(exam); return 0; }
-    let next = LESSON_ORDER.find((l) => !this.done.has(l.id));
-    if (chance(0.08)) next = pick(LESSON_ORDER.filter((l) => l.unit === (next?.unit || 'money')));
-    if (!next) return 0;
-    const lesson = await this.lesson(next.id);
-    if (!lesson.steps) return 0;
-    this.study(lesson);
-    const quiz = lesson.steps[lesson.steps.length - 1];
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const boost = attempt * 0.12;
-      const answers = quiz.questions.map((q) => (chance(Math.min(0.98, this.p.skill + boost + 0.08)) ? q.answer : (q.answer + 1 + Math.floor(Math.random() * (q.options.length - 1))) % q.options.length));
-      const r = await this.api('POST', `/lessons/lesson/${next.id}/complete`, { answers });
-      if (r.data.passed) { this.done.add(next.id); return 1; }
-      stats.lessonsFailed++;
-      if (!chance(this.p.grit)) return 0;
-    }
-    return 0;
-  }
-
-  examReady() {
-    for (const u of CATALOG.units) {
-      if (this.examPassed.has(u.id)) continue;
-      const ids = u.chapters.flatMap((c) => c.lessons.map((l) => l.id));
-      if (ids.every((id) => this.done.has(id))) return u.id;
-    }
-    return null;
-  }
-
-  async exam(unitId) {
-    const ex = (await this.api('GET', `/lessons/exam/${unitId}`)).data;
-    if (!ex.token) return;
-    const answers = ex.questions.map((q) => {
-      const want = this.known.get(String(q.q).trim());
-      const i = want ? q.options.findIndex((o) => String(o).trim() === want) : -1;
-      return i >= 0 && chance(0.95) ? i : Math.floor(Math.random() * q.options.length);
-    });
-    const r = (await this.api('POST', `/lessons/exam/${unitId}`, { token: ex.token, answers })).data;
-    stats.exams.push({ unit: unitId, score: r.score, passed: !!r.passed, type: this.p.type });
-    if (r.passed) this.examPassed.add(unitId);
-  }
-
-  /** A boss fight: the real question flow, with dodging and aiming simulated from the persona. */
-  async arena() {
-    const list = (await this.api('GET', '/battles')).data;
-    if (!list.bosses) return;
-    const open = list.bosses.filter((b) => b.unlocked);
-    if (!open.length) return;
-    const fresh = open.filter((b) => !b.wins);
-    const boss = fresh.length && chance(0.85) ? fresh[0] : pick(open);
-    const start = await this.api('POST', `/battles/${boss.id}/start`);
-    if (start.status !== 200) return;
-    const { battleId, loadout } = start.data;
-    const began = Date.now();
-    const world = Math.max(1, Math.ceil((list.bosses.indexOf(boss) + 1) / 2.5));
-    let bossHp = boss.hp; let hp = loadout.hp; let pips = 0; let t = 0; let correct = 0; let wrong = 0; let index = 0;
-    const perPip = 30 + 3 * (loadout.stats.power || 0);
-    const armor = 1 - Math.min(0.6, 0.03 * (loadout.stats.defense || 0));
-    const pressure = (1.6 + world * 0.9) * (1.15 - this.p.dex) * armor; // HP lost per second of open fighting
-    const regen = boss.mechanic?.type === 'regen' ? 1 : 0;
-    let result = 'lost';
-    while (t < 300) {
-      // Focus Time: a real question from the server
-      const q = (await this.api('POST', `/battles/${battleId}/next`)).data;
-      if (!q.options) break;
-      const want = this.known.get(String(q.q).trim());
-      const known = want ? q.options.findIndex((o) => String(o).trim() === want) : -1;
-      const choice = known >= 0 && chance(0.93) ? known : Math.floor(Math.random() * q.options.length);
-      const a = (await this.api('POST', `/battles/${battleId}/answer`, { index, choice })).data;
-      index++;
-      const think = rand(3, 9);
-      t += think; hp -= pressure * think * 0.2; // time runs at 20% while thinking
-      if (a.correct) { correct++; pips = Math.min(3, pips + 1); } else { wrong++; pips = Math.max(0, pips - 1); }
-      // open fighting between questions
-      const fight = rand(3, 7);
-      t += fight; hp -= pressure * fight * rand(0.6, 1.4); bossHp = Math.min(boss.hp, bossHp + regen * fight);
-      if (pips === 3) { if (chance(this.p.aim)) bossHp -= 3 * perPip * (chance(0.03) ? 2 : 1); pips = 0; }
-      if (bossHp <= 0) { result = 'won'; break; }
-      if (hp <= 0) break;
-      if (chance(0.01)) { result = 'abandoned'; break; }
-    }
-    // A real fight takes real time; the server also refuses wins under 20s.
-    const wait = Math.max(21000, Math.min(t * 1000 * 0.5, 70000)) - (Date.now() - began);
-    if (wait > 0) await sleep(wait);
-    const fin = await this.api('POST', `/battles/${battleId}/finish`, { result, damageTaken: Math.max(0, Math.round(loadout.hp - Math.max(0, hp))) });
-    stats.fights.push({ boss: boss.id, result, accepted: fin.status === 200, correct, wrong, simSeconds: Math.round(t), type: this.p.type, power: loadout.stats.power, coins: fin.data.coins || 0 });
-  }
-
-  async trade() {
-    const ports = (await this.api('GET', '/portfolio')).data;
-    const manual = Array.isArray(ports) ? ports.find((p) => p.portfolioType === 'manual') : null;
-    if (!manual) return;
-    const pid = manual.portfolioId;
-    const positions = (await this.api('GET', `/portfolio/${pid}/positions`)).data;
-    const writes = chance(this.p.journaler);
-    if (Array.isArray(positions) && positions.length && chance(0.35)) {
-      const pos = pick(positions);
-      const r = await this.api('POST', `/portfolio/${pid}/close/${pos.id}`, writes ? { reasoning: pick(NOTES.slice(4)) } : {});
-      if (r.status === 200) stats.trades++;
-      return;
-    }
-    const r = await this.api('POST', `/portfolio/${pid}/trade`, {
-      symbol: pick(TICKERS), action: 'BUY', quantity: Math.ceil(rand(1, 20)), orderType: 'market',
-      ...(writes ? { reasoning: pick(NOTES.slice(0, 4)) } : {}),
-    });
-    if (r.status === 200) stats.trades++;
-    if (chance(0.15)) {
-      await this.api('POST', '/portfolio/analysis', { symbol: pick(TICKERS), verdict: pick(['BUY', 'HOLD', 'AVOID']), trendAssessment: pick(['uptrend', 'downtrend', 'sideways']), reasoning: 'Looked at the trend, support and resistance, and the earnings growth before deciding.' });
-    }
-  }
-
-  async hideout() {
-    const st = (await this.api('GET', '/game/state')).data;
-    if (!st.inventory) return;
-    if (!this.styled && chance(0.6)) {
-      this.styled = true;
-      await this.api('PUT', '/game/appearance', {
-        skin: pick(CATALOG.appearance.skin), hairStyle: pick(CATALOG.appearance.hairStyle), hairColor: pick(CATALOG.appearance.hairColor),
-        eyeColor: pick(CATALOG.appearance.eyeColor), shirt: pick(CATALOG.appearance.shirt), pants: pick(CATALOG.appearance.pants), shoes: pick(CATALOG.appearance.shoes),
-      });
-    }
-    const owned = new Set(st.inventory.map((i) => i.id));
-    const shop = ITEMS.filter((i) => i.unlockKind === 'shop' && st.unlockedWorlds.includes(i.world) && !owned.has(i.id) && i.price <= st.coins);
-    if (shop.length && chance(0.6)) {
-      // most people buy what looks strongest they can afford; some buy for looks
-      const score = (i) => Object.values(i.stats || {}).reduce((s, v) => s + v, 0) + (i.effects?.length || 0) * 1.5;
-      const choice = chance(0.7) ? shop.sort((a, b) => score(b) - score(a))[0] : pick(shop);
-      const r = await this.api('POST', '/game/buy', { itemId: choice.id });
-      if (r.status === 200) { stats.buys++; owned.add(choice.id); }
-    }
-    // equip the best owned item per slot
-    const score = (i) => Object.values(i.stats || {}).reduce((s, v) => s + v, 0) + (i.effects?.length || 0) * 1.5;
-    for (const slot of CATALOG.slots) {
-      const mine = ITEMS.filter((i) => i.slot === slot && owned.has(i.id)).sort((a, b) => score(b) - score(a));
-      if (mine[0] && st.equipment[slot] !== mine[0].id && chance(0.8)) await this.api('PUT', '/game/equip', { slot, itemId: mine[0].id });
-    }
-  }
-
-  async quests() {
-    const b = (await this.api('GET', '/quests')).data;
-    if (!b.daily) return;
-    for (const q of [...b.daily, ...b.weekly, ...b.story]) {
-      if (q.done && !q.claimed && chance(0.9)) {
-        const r = await this.api('POST', `/quests/${q.id}/claim`);
-        if (r.status === 200) stats.claims++;
-      }
-    }
+    this.daysPlayed++; this.lastDay = day;
+    await this.brain.play();
   }
 }
 
@@ -460,10 +228,8 @@ const stop = () => { try { server.kill(); } catch { /* gone */ } };
 process.on('SIGINT', () => { stop(); process.exit(130); });
 try {
   await waitForServer();
-  CATALOG = { ...(await (await fetch(`${BASE}/lessons/catalog`)).json()), ...(await (await fetch(`${BASE}/game/catalog`)).json()) };
-  CATALOG.appearance ||= (await import('../services/game.js')).APPEARANCE;
-  ITEMS = CATALOG.items;
-  LESSON_ORDER = CATALOG.units.flatMap((u) => u.chapters.flatMap((c) => c.lessons.map((l) => ({ id: l.id, unit: u.id }))));
+  shared.catalog = { ...(await (await fetch(`${BASE}/lessons/catalog`)).json()), ...(await (await fetch(`${BASE}/game/catalog`)).json()) };
+  shared.catalog.appearance ||= (await import('../services/game.js')).APPEARANCE;
   const db = new pg.Client({ connectionString: simUrl.toString() });
   await db.connect();
   const players = Array.from({ length: BOTS }, () => new Player());

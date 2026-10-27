@@ -37,7 +37,7 @@ const Legal = (() => {
         <li>Pick a username that isn't offensive, impersonating someone, or misleading. We may change or remove usernames that break these rules.</li>
         <li>You can delete your account at any time in Settings.</li></ul>
       <h2>7. Acceptable use</h2><p>Don't: attempt to access other people's accounts or data; probe, scan or attack the service; scrape or bulk-download content; use bots to farm XP or manipulate leaderboards; upload malicious code; or use ${x.name} for anything illegal. Found a security issue? Please report it to ${contact(x)} instead of exploiting it.</p>
-      <h2>8. Points, coins and badges</h2><p>XP, coins, streaks, badges and leaderboard ranks are game features with no cash value. They can't be sold, transferred or redeemed, and we may adjust or reset them (for example, to fix bugs or cheating).</p>
+      <h2>8. Points, coins and badges</h2><p>Leaderboards include <b>AI rivals</b>: computer-controlled players that learn, fight bosses and earn XP under the same rules as everyone else, so there is always competition. XP, coins, streaks, badges and leaderboard ranks are game features with no cash value. They can't be sold, transferred or redeemed, and we may adjust or reset them (for example, to fix bugs or cheating).</p>
       <h2>9. Our content</h2><p>The lessons, artwork, characters, code and design are owned by ${x.entity} and protected by copyright. You may use them for your personal learning. Don't copy, republish or sell them without written permission.</p>
       <h2>10. Changes and termination</h2><p>We may update the service or these Terms. If a change is significant we'll post a notice on the site. We may suspend or close accounts that violate these Terms.</p>
       <h2>11. Disclaimers</h2><p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING ACCURACY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. We work hard to keep lessons accurate, but rules, limits and numbers change, and we can make mistakes.</p>
@@ -63,7 +63,7 @@ const Legal = (() => {
       <ul><li><b>Hosting and database</b> (our cloud host) to run the app.</li><li><b>Email delivery</b> (Resend) to send emails you've asked for, if you add an email.</li>
         <li><b>Market data</b> is fetched by our server; your personal information is not sent to data providers.</li></ul>
       <p>We may disclose information if required by law or to protect the safety of users or the service.</p>
-      <h2>Leaderboards</h2><p>If you appear on the leaderboard, other users can see your username, avatar and XP. You can hide yourself in Settings.</p>
+      <h2>Leaderboards</h2><p>If you appear on the leaderboard, other users can see your username, avatar and XP. You can hide yourself in Settings. Leaderboards also include AI rivals, which are computer players, not real people.</p>
       <h2>Children</h2><p>${x.name} is not for children under 13. If you believe a child under 13 created an account, contact us and we'll delete it. Users aged 13-17 should have a parent or guardian's permission.</p>
       <h2>Your rights</h2><p>Everyone can, at any time:</p><ul><li><b>Access / export</b> their data (Settings, "Download my data").</li><li><b>Delete</b> their account and data (Settings, "Delete account").</li>
         <li><b>Correct</b> their email or preferences (Settings).</li><li><b>Opt out</b> of reminder emails (Settings, or the link in any reminder).</li></ul>

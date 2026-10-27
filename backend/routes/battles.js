@@ -2,6 +2,10 @@
 // rewards happens here: questions are drawn and graded server-side, and a
 // claimed win must be backed by enough correct answers to have dealt the
 // boss's HP.
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate } from '../middleware/auth.js';
@@ -13,12 +17,88 @@ import { awardXp, touchStreak, checkAchievements, levelFor } from '../services/p
 import { logActivity } from '../services/activity.js';
 import { ensureStarterKit } from './game.js';
 import { isAdmin } from '../services/adminAccess.js';
+import { monsterFor, dungeonLessons, floorRewards, DAILY_COIN_CAP, DAILY_XP_CAP } from '../services/dungeon.js';
 
 const router = express.Router();
 router.use(authenticate);
 
 const UUID = /^[0-9a-f-]{36}$/;
 const MIN_WIN_SECONDS = 20;
+// Pop Quizzes: the client asks one about every 30s of play; the server expects
+// at least one per POP_EXPECT_SECONDS of wall time (looser, to allow for
+// pauses and slow connections). Each wrong or skipped one costs coins.
+const POP_EXPECT_SECONDS = 45;
+const POP_COINS = 5;
+const POP_MAX_COINS = 25;
+
+/** A boss from bosses.json, or a Dungeon floor's monster ("dungeon-<floor>"). */
+function bossFor(id) {
+  const m = /^dungeon-(\d{1,4})$/.exec(String(id));
+  return m ? monsterFor(Number(m[1])) : BOSS_BY_ID.get(id);
+}
+
+// ---------------------------------------------------------------- dungeon helpers
+const LOOT_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'content', 'game', 'dungeon-loot.json');
+let lootCache = null;
+function lootTable() {
+  if (!lootCache && fs.existsSync(LOOT_PATH)) lootCache = JSON.parse(fs.readFileSync(LOOT_PATH, 'utf8'));
+  return lootCache;
+}
+const bandFor = (table, floor) => table.bands.find((b) => floor >= b.fromFloor && (b.toFloor == null || floor <= b.toFloor)) || table.bands[table.bands.length - 1];
+
+/** Rolls a floor's loot. Odds come from content/game/dungeon-loot.json and are shown to players. */
+function rollLoot(floor, guardian) {
+  const table = lootTable();
+  if (!table) return null;
+  const chance = guardian ? table.guardianDropChance : table.normalDropChance;
+  if (crypto.randomInt(1_000_000) / 1_000_000 >= chance) return null;
+  const weights = bandFor(table, floor).weights;
+  const order = ['legendary', 'epic', 'rare', 'uncommon', 'common'];
+  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  let r = (crypto.randomInt(1_000_000) / 1_000_000) * total;
+  let rarity = 'common';
+  for (const [k, w] of Object.entries(weights)) { if ((r -= w) <= 0) { rarity = k; break; } }
+  // Fall back to the next rarity down if nothing of this rarity drops this shallow.
+  for (const rr of order.slice(order.indexOf(rarity))) {
+    const pool = [...ITEMS.values()].filter((i) => i.unlockKind === 'dungeon' && i.rarity === rr && (i.minFloor || 1) <= floor);
+    if (pool.length) return pool[crypto.randomInt(pool.length)];
+  }
+  return null;
+}
+
+async function dungeonProgress(db, userId, lock = false) {
+  await db.query('INSERT INTO dungeon_progress (user_id) VALUES ($1) ON CONFLICT DO NOTHING', [userId]);
+  const { rows } = await db.query(
+    `SELECT d.*, (NOW() AT TIME ZONE COALESCE(u.timezone, 'America/New_York'))::date::text AS today, d.day::text AS day_text
+     FROM dungeon_progress d JOIN users u ON u.id = d.user_id WHERE d.user_id = $1${lock ? ' FOR UPDATE OF d' : ''}`,
+    [userId]
+  );
+  const p = rows[0];
+  if (p.day_text !== p.today) { p.coins_today = 0; p.xp_today = 0; }
+  return p;
+}
+
+function dungeonView(p) {
+  const table = lootTable();
+  const next = p.current_floor + 1;
+  return {
+    currentFloor: p.current_floor,
+    nextFloor: next,
+    bestFloor: p.best_floor,
+    runs: p.runs,
+    coinsToday: p.coins_today,
+    xpToday: p.xp_today,
+    caps: { coins: DAILY_COIN_CAP, xp: DAILY_XP_CAP },
+    monster: publicBoss({ ...monsterFor(next), questionPool: null }),
+    odds: table ? {
+      normalDropChance: table.normalDropChance,
+      guardianDropChance: table.guardianDropChance,
+      band: bandFor(table, next),
+      bands: table.bands.map((b) => ({ fromFloor: b.fromFloor, toFloor: b.toFloor, oddsText: b.oddsText })),
+    } : null,
+    lootCount: [...ITEMS.values()].filter((i) => i.unlockKind === 'dungeon').length,
+  };
+}
 
 async function playerContext(db, userId, admin = false) {
   // New players may reach the Arena before ever opening the Hideout.
@@ -70,14 +150,31 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/battles/:bossId/start
+// GET /api/battles/dungeon   -> your run, the next floor's monster, today's caps and the loot odds
+router.get('/dungeon', async (req, res, next) => {
+  try {
+    const ctx = await playerContext({ query }, req.user.userId, isAdmin(req));
+    const p = await dungeonProgress({ query }, req.user.userId);
+    res.json({ ...dungeonView(p), loadout: ctx.loadout });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/battles/:bossId/start   (bossId "dungeon" = the next floor of your run)
 router.post('/:bossId/start', async (req, res, next) => {
   try {
-    const boss = BOSS_BY_ID.get(req.params.bossId);
-    if (!boss) return res.status(404).json({ error: 'No such boss' });
     const ctx = await playerContext({ query }, req.user.userId, isAdmin(req));
-    const status = bossStatus(boss, ctx);
-    if (!status.unlocked) return res.status(403).json({ error: `${status.unlockText} to challenge ${boss.name}.` });
+    let boss;
+    if (req.params.bossId === 'dungeon') {
+      const p = await dungeonProgress({ query }, req.user.userId);
+      boss = { ...monsterFor(p.current_floor + 1), questionPool: { lessons: dungeonLessons(ctx.completed) } };
+    } else {
+      boss = BOSS_BY_ID.get(req.params.bossId);
+      if (!boss) return res.status(404).json({ error: 'No such boss' });
+      const status = bossStatus(boss, ctx);
+      if (!status.unlocked) return res.status(403).json({ error: `${status.unlockText} to challenge ${boss.name}.` });
+    }
     const deck = drawQuestions(boss);
     if (deck.length < 5) return res.status(503).json({ error: 'Not enough questions for this fight yet' });
     // One fight at a time: any unfinished battle is abandoned.
@@ -86,7 +183,7 @@ router.post('/:bossId/start', async (req, res, next) => {
       'INSERT INTO battles (user_id, boss_id, questions, loadout) VALUES ($1, $2, $3, $4) RETURNING id',
       [req.user.userId, boss.id, JSON.stringify(deck), JSON.stringify(ctx.loadout)]
     );
-    res.json({ battleId: rows[0].id, boss: publicBoss(boss), loadout: ctx.loadout, questionCount: deck.length, minCorrect: minCorrectToWin(boss, ctx.loadout.stats.power) });
+    res.json({ battleId: rows[0].id, boss: publicBoss({ ...boss, questionPool: null }), loadout: ctx.loadout, questionCount: deck.length, minCorrect: minCorrectToWin(boss, ctx.loadout.stats.power) });
   } catch (err) {
     next(err);
   }
@@ -112,7 +209,12 @@ router.post('/:battleId/next', async (req, res, next) => {
     const entry = b.questions[index % b.questions.length];
     const q = resolveQuestion(entry);
     if (!q) return res.status(500).json({ error: 'Question missing' });
-    res.json({ index, q: q.q, options: q.options, from: q.lessonTitle });
+    // { pop: true } = the boss's Pop Quiz; the server remembers which index it was.
+    const pop = req.body?.pop === true;
+    if (pop && !b.pop_indexes.includes(index)) {
+      await query('UPDATE battles SET pop_indexes = pop_indexes || $1::jsonb WHERE id = $2', [JSON.stringify([index]), b.id]);
+    }
+    res.json({ index, q: q.q, options: q.options, from: q.lessonTitle, pop: pop || b.pop_indexes.includes(index) });
   } catch (err) {
     next(err);
   }
@@ -131,11 +233,12 @@ router.post('/:battleId/answer', async (req, res, next) => {
       const q = resolveQuestion(b.questions[index % b.questions.length]);
       const correct = choice === q.answer;
       const answered = { ...b.answered, [index]: { correct } };
+      const pop = b.pop_indexes.includes(index);
       await db.query(
-        `UPDATE battles SET answered = $1, correct = correct + $2, wrong = wrong + $3 WHERE id = $4`,
-        [JSON.stringify(answered), correct ? 1 : 0, correct ? 0 : 1, b.id]
+        `UPDATE battles SET answered = $1, correct = correct + $2, wrong = wrong + $3, pop_wrong = pop_wrong + $4 WHERE id = $5`,
+        [JSON.stringify(answered), correct ? 1 : 0, correct ? 0 : 1, pop && !correct ? 1 : 0, b.id]
       );
-      return { correct, answer: q.answer, explain: q.explain };
+      return { correct, answer: q.answer, explain: q.explain, pop, coinsAtRisk: pop && !correct ? POP_COINS : 0 };
     });
     if (out.error) return res.status(out.status).json({ error: out.error });
     res.json(out);
@@ -177,7 +280,7 @@ router.post('/:battleId/finish', async (req, res, next) => {
     const out = await withTransaction(async (db) => {
       const b = await activeBattle(db, req.params.battleId, userId, true);
       if (!b) return { status: 404, error: 'Battle not found or already over' };
-      const boss = BOSS_BY_ID.get(b.boss_id);
+      const boss = bossFor(b.boss_id);
       const seconds = (Date.now() - new Date(b.started_at).getTime()) / 1000;
       const need = minCorrectToWin(boss, b.loadout?.stats?.power);
       if (result === 'won' && (b.correct < need || seconds < MIN_WIN_SECONDS)) {
@@ -191,7 +294,40 @@ router.post('/:battleId/finish', async (req, res, next) => {
       let firstWin = false;
       let streak = null;
       let newAchievements = [];
-      if (result === 'won') {
+      let dungeon = null;
+
+      if (boss.dungeon) {
+        const p = await dungeonProgress(db, userId, true);
+        dungeon = { floor: boss.floor, best: p.best_floor, newBest: false, coins: 0, xp: 0, capped: false, duplicateCoins: 0 };
+        if (result === 'won' && boss.floor === p.current_floor + 1) {
+          const r = floorRewards(boss.floor);
+          const c = Math.max(0, Math.min(r.coins, DAILY_COIN_CAP - p.coins_today));
+          const x = Math.max(0, Math.min(r.xp, DAILY_XP_CAP - p.xp_today));
+          dungeon = { ...dungeon, coins: c, xp: x, capped: c < r.coins || x < r.xp, best: Math.max(p.best_floor, boss.floor), newBest: boss.floor > p.best_floor };
+          // Loot: odds from content/game/dungeon-loot.json; duplicates become coins.
+          const drop = rollLoot(boss.floor, boss.floor % 5 === 0);
+          if (drop) {
+            const ins = await db.query(
+              `INSERT INTO user_items (user_id, item_id, source) VALUES ($1, $2, 'dungeon') ON CONFLICT DO NOTHING RETURNING item_id`,
+              [userId, drop.id]
+            );
+            if (ins.rows.length) item = drop;
+            else dungeon.duplicateCoins = lootTable()?.duplicateCoins?.[drop.rarity] || 0;
+          }
+          coins = c + dungeon.duplicateCoins;
+          await awardXp(db, userId, 'dungeon', boss.id, x, coins);
+          await db.query(
+            `UPDATE dungeon_progress SET current_floor = $1, best_floor = GREATEST(best_floor, $1), day = $2::date,
+               coins_today = $3, xp_today = $4, updated_at = NOW() WHERE user_id = $5`,
+            [boss.floor, p.today, p.coins_today + c, p.xp_today + x, userId]
+          );
+          await logActivity(db, userId, 'dungeon_floor', String(boss.floor));
+          streak = await touchStreak(db, userId);
+        } else if (result !== 'won') {
+          // The run ends: back to floor 1 next time.
+          await db.query(`UPDATE dungeon_progress SET current_floor = 0, runs = runs + 1, updated_at = NOW() WHERE user_id = $1 AND current_floor > 0`, [userId]);
+        }
+      } else if (result === 'won') {
         const prior = await db.query(
           `SELECT
              (SELECT COUNT(*) FROM battles WHERE user_id = $1 AND boss_id = $2 AND status = 'won')::int AS wins,
@@ -218,16 +354,26 @@ router.post('/:battleId/finish', async (req, res, next) => {
         if (damageTaken === 0) await logActivity(db, userId, 'boss_flawless', boss.id);
         streak = await touchStreak(db, userId);
       }
+      // Pop Quizzes (taken after this fight's rewards, never below 0): wrong answers, plus ones the fight should have had but didn't, cost coins.
+      // Missing ones only count on wins (pausing can stretch a lost fight's clock), at most 2.
+      const popMissed = result === 'won' ? Math.min(2, Math.max(0, Math.floor(seconds / POP_EXPECT_SECONDS) - b.pop_indexes.length)) : 0;
+      const coinsLost = Math.min(POP_MAX_COINS, (b.pop_wrong + popMissed) * POP_COINS, (await db.query('SELECT coins FROM users WHERE id = $1', [userId])).rows[0].coins);
+      if (coinsLost > 0) {
+        await db.query('UPDATE users SET coins = coins - $1 WHERE id = $2', [coinsLost, userId]);
+        await db.query(`INSERT INTO coin_events (user_id, amount, reason, ref) VALUES ($1, $2, 'pop_quiz', $3)`, [userId, -coinsLost, boss.id]);
+      }
+
       if (b.correct > 0) await logActivity(db, userId, 'boss_correct', boss.id, b.correct);
       await db.query(
-        `UPDATE battles SET status = $1, finished_at = NOW(), damage_taken = $2, duration_ms = $3, reward_coins = $4, reward_item = $5 WHERE id = $6`,
-        [result, damageTaken, Math.round(seconds * 1000), coins, item?.id || null, b.id]
+        `UPDATE battles SET status = $1, finished_at = NOW(), damage_taken = $2, duration_ms = $3, reward_coins = $4, reward_item = $5, coins_lost = $6 WHERE id = $7`,
+        [result, damageTaken, Math.round(seconds * 1000), coins, item?.id || null, coinsLost, b.id]
       );
       if (result === 'won') newAchievements = await checkAchievements(db, userId);
       const after = (await db.query('SELECT xp, coins FROM users WHERE id = $1', [userId])).rows[0];
       return {
-        result, firstWin, coins: after.coins - before.coins, xp: after.xp - before.xp, item: item ? { id: item.id, name: item.name, rarity: item.rarity } : null,
+        result, firstWin, coins: after.coins - before.coins + coinsLost, xp: after.xp - before.xp, item: item ? { id: item.id, name: item.name, rarity: item.rarity } : null,
         correct: b.correct, wrong: b.wrong, seconds: Math.round(seconds), damageTaken, streak,
+        dungeon, coinsLost, popWrong: b.pop_wrong, popMissed,
         newAchievements: newAchievements.map(({ id, name, desc, sprite }) => ({ id, name, desc, sprite })),
         level: levelFor(after.xp), leveledUp: levelFor(after.xp).level > levelFor(before.xp).level,
       };

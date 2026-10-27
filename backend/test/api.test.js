@@ -310,3 +310,55 @@ test('boss battles: locked until the chapter is done, graded server-side, wins m
   assert.equal(r.status, 400, 'not done yet');
   await call('DELETE', '/api/me', { password: 'Correct horse 9', confirm: 'DELETE' });
 });
+
+test('dungeon: open from day one, pop quizzes cost coins, losing ends the run', { timeout: 60000 }, async () => {
+  const r0 = await call('POST', '/api/auth/register', { username: `${uname}d`, password: 'Correct horse 9', acceptTerms: true, confirmAge: true }, { auth: false });
+  access = r0.data.accessToken;
+  let d = (await call('GET', '/api/battles/dungeon')).data;
+  assert.equal(d.nextFloor, 1, 'no lessons needed');
+  assert.equal(d.monster.id, 'dungeon-1');
+  assert.ok(!('questionPool' in d.monster));
+
+  const start = (await call('POST', '/api/battles/dungeon/start')).data;
+  assert.equal(start.boss.floor, 1);
+  const id = start.battleId;
+  const begun = Date.now();
+  // A Pop Quiz answered wrong is remembered server-side.
+  let q = (await call('POST', `/api/battles/${id}/next`, { pop: true })).data;
+  assert.equal(q.pop, true);
+  let r = await call('POST', `/api/battles/${id}/answer`, { index: 0, choice: -1 });
+  assert.equal(r.data.pop, true);
+  assert.equal(r.data.coinsAtRisk, 5);
+  const answers = [r.data.answer];
+  for (let i = 1; i < start.questionCount; i++) {
+    r = await call('POST', `/api/battles/${id}/answer`, { index: i, choice: -1 });
+    answers.push(r.data.answer);
+  }
+  for (let i = 0; i < start.minCorrect; i++) {
+    const n = start.questionCount + i;
+    r = await call('POST', `/api/battles/${id}/answer`, { index: n, choice: answers[n % start.questionCount] });
+    assert.equal(r.data.correct, true);
+  }
+  const coinsBefore = (await call('GET', '/api/game/state')).data.coins;
+  await new Promise((ok) => setTimeout(ok, Math.max(0, 21000 - (Date.now() - begun))));
+  const win = (await call('POST', `/api/battles/${id}/finish`, { result: 'won', damageTaken: 5 })).data;
+  assert.equal(win.dungeon.floor, 1);
+  // One wrong pop quiz = 5 coins, but never more than the player has (a new player has only floor 1's reward).
+  assert.equal(win.coinsLost, Math.min(5, coinsBefore + win.coins));
+  assert.ok(win.dungeon.coins > 0 && win.xp > 0);
+  const coinsAfter = (await call('GET', '/api/game/state')).data.coins;
+  assert.equal(coinsAfter - coinsBefore, win.coins - win.coinsLost);
+  d = (await call('GET', '/api/battles/dungeon')).data;
+  assert.equal(d.nextFloor, 2);
+  assert.equal(d.bestFloor, 1);
+
+  // Losing floor 2 ends the run.
+  const s2 = (await call('POST', '/api/battles/dungeon/start')).data;
+  assert.equal(s2.boss.floor, 2);
+  await call('POST', `/api/battles/${s2.battleId}/finish`, { result: 'lost', damageTaken: 120 });
+  d = (await call('GET', '/api/battles/dungeon')).data;
+  assert.equal(d.nextFloor, 1);
+  assert.equal(d.bestFloor, 1);
+  assert.equal(d.runs, 1);
+  await call('DELETE', '/api/me', { password: 'Correct horse 9', confirm: 'DELETE' });
+});

@@ -33,20 +33,21 @@ router.get('/dashboard', async (req, res, next) => {
     const onlineUsers = req.app.get('onlineUsers');
     const [counts, topStrategies, lessonRates, examRates, recent, signups, emailStats] = await Promise.all([
       query(`SELECT
-        (SELECT COUNT(*) FROM users)::int AS total_users,
-        (SELECT COUNT(*) FROM users WHERE created_at >= CURRENT_DATE)::int AS new_today,
-        (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '7 days')::int AS new_week,
-        (SELECT COUNT(*) FROM users WHERE last_login >= NOW() - INTERVAL '7 days')::int AS active_week,
-        (SELECT COUNT(*) FROM users WHERE email IS NOT NULL AND email_verified)::int AS with_email,
-        (SELECT COUNT(*) FROM trades)::int AS total_trades,
-        (SELECT COUNT(*) FROM lesson_completions)::int AS total_lessons,
-        (SELECT COUNT(*) FROM unit_exams WHERE passed)::int AS exams_passed,
-        (SELECT COALESCE(SUM(amount),0) FROM xp_events WHERE created_at >= CURRENT_DATE)::int AS xp_today`),
+        (SELECT COUNT(*) FROM users WHERE NOT is_bot)::int AS total_users,
+        (SELECT COUNT(*) FROM users WHERE is_bot)::int AS ai_rivals,
+        (SELECT COUNT(*) FROM users WHERE NOT is_bot AND created_at >= CURRENT_DATE)::int AS new_today,
+        (SELECT COUNT(*) FROM users WHERE NOT is_bot AND created_at >= NOW() - INTERVAL '7 days')::int AS new_week,
+        (SELECT COUNT(*) FROM users WHERE NOT is_bot AND last_login >= NOW() - INTERVAL '7 days')::int AS active_week,
+        (SELECT COUNT(*) FROM users WHERE NOT is_bot AND email IS NOT NULL AND email_verified)::int AS with_email,
+        (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id IN (SELECT id FROM users WHERE NOT is_bot))::int AS total_trades,
+        (SELECT COUNT(*) FROM lesson_completions WHERE user_id IN (SELECT id FROM users WHERE NOT is_bot))::int AS total_lessons,
+        (SELECT COUNT(*) FROM unit_exams WHERE passed AND user_id IN (SELECT id FROM users WHERE NOT is_bot))::int AS exams_passed,
+        (SELECT COALESCE(SUM(amount),0) FROM xp_events WHERE created_at >= CURRENT_DATE AND user_id IN (SELECT id FROM users WHERE NOT is_bot))::int AS xp_today`),
       query(`SELECT strategy, COUNT(*)::int AS count FROM trades WHERE strategy IS NOT NULL GROUP BY strategy ORDER BY count DESC LIMIT 6`),
-      query(`SELECT lesson_id, COUNT(*)::int AS n, ROUND(AVG(best_score))::int AS avg_score FROM lesson_completions GROUP BY lesson_id`),
-      query(`SELECT unit_id, COUNT(*) FILTER (WHERE passed)::int AS passed, COUNT(*)::int AS attempted FROM unit_exams GROUP BY unit_id`),
-      query(`SELECT id, username, created_at AS "createdAt", xp FROM users ORDER BY created_at DESC LIMIT 10`),
-      query(`SELECT DATE(created_at) AS day, COUNT(*)::int AS n FROM users WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1`),
+      query(`SELECT lesson_id, COUNT(*)::int AS n, ROUND(AVG(best_score))::int AS avg_score FROM lesson_completions WHERE user_id IN (SELECT id FROM users WHERE NOT is_bot) GROUP BY lesson_id`),
+      query(`SELECT unit_id, COUNT(*) FILTER (WHERE passed)::int AS passed, COUNT(*)::int AS attempted FROM unit_exams WHERE user_id IN (SELECT id FROM users WHERE NOT is_bot) GROUP BY unit_id`),
+      query(`SELECT id, username, created_at AS "createdAt", xp FROM users WHERE NOT is_bot ORDER BY created_at DESC LIMIT 10`),
+      query(`SELECT DATE(created_at) AS day, COUNT(*)::int AS n FROM users WHERE NOT is_bot AND created_at >= NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1`),
       query(`SELECT kind, status, COUNT(*)::int AS n FROM email_log WHERE created_at >= NOW() - INTERVAL '7 days' GROUP BY 1, 2 ORDER BY 1`),
     ]);
     const c = counts.rows[0];
@@ -58,6 +59,7 @@ router.get('/dashboard', async (req, res, next) => {
     });
     res.json({
       totalUsers: c.total_users,
+      aiRivals: c.ai_rivals,
       activeNow: onlineUsers ? onlineUsers.size : 0,
       newUsersToday: c.new_today,
       newUsersThisWeek: c.new_week,
@@ -90,15 +92,19 @@ router.get('/users', async (req, res, next) => {
     const offset = (page - 1) * limit;
     const search = String(req.query.search || '').trim().slice(0, 100);
     const params = [];
-    let where = '';
+    const conds = [];
     if (search) {
       params.push(`%${search.replace(/[%_\\]/g, '\\$&')}%`);
-      where = 'WHERE u.username ILIKE $1 OR u.email ILIKE $1';
+      conds.push('(u.username ILIKE $1 OR u.email ILIKE $1)');
     }
+    // ?kind=humans | bots (AI rivals) | all (default)
+    if (req.query.kind === 'humans') conds.push('NOT u.is_bot');
+    if (req.query.kind === 'bots') conds.push('u.is_bot');
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const total = (await query(`SELECT COUNT(*)::int AS n FROM users u ${where}`, params)).rows[0].n;
     const { rows } = await query(
       `SELECT u.id, u.username, u.email, u.email_verified AS "emailVerified", u.role, u.created_at AS "createdAt",
-         u.last_login AS "lastLogin", u.is_active AS "isActive", u.xp, u.streak_current AS streak,
+         u.last_login AS "lastLogin", u.is_active AS "isActive", u.is_bot AS "isBot", u.xp, u.streak_current AS streak,
          (u.locked_until IS NOT NULL AND u.locked_until > NOW()) AS locked,
          (SELECT COUNT(*) FROM trades t JOIN portfolios p ON p.id = t.portfolio_id WHERE p.user_id = u.id)::int AS "tradesCount",
          (SELECT COUNT(*) FROM lesson_completions lc WHERE lc.user_id = u.id)::int AS "lessonsCompleted"

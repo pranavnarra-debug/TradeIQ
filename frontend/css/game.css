@@ -187,6 +187,11 @@
 .qcard { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(18, 26, 21, 0.55); padding: 14px; }
 .qc-inner { width: min(640px, 100%); background: var(--card); color: var(--ink); border: var(--b); border-radius: 18px; box-shadow: var(--shadow-lg); padding: 18px 20px; animation: pop-in 0.2s cubic-bezier(0.2, 1.4, 0.4, 1); max-height: 100%; overflow-y: auto; }
 .qc-inner h3 { font-size: 21px; margin: 6px 0 12px; }
+/* Pop Quiz: the boss's forced question */
+.pop .qc-inner { border-color: var(--tomato); box-shadow: 0 0 0 4px rgba(255, 90, 78, 0.35), var(--shadow-lg); animation: pop-in 0.2s cubic-bezier(0.2, 1.4, 0.4, 1), pop-shake 0.35s 0.2s; }
+.pop .qc-head .px-label { color: var(--tomato); }
+@keyframes pop-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) { .pop .qc-inner { animation: none; } }
 .qc-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .qc-timer { font-family: var(--font-mono); font-weight: 800; background: var(--ink); color: var(--sun); border-radius: 8px; padding: 2px 10px; }
 .qc-opts { display: grid; gap: 8px; margin-bottom: 8px; }
@@ -214,3 +219,22 @@
   .arena-stage canvas { max-height: calc(100vh - 300px); }
   .bar-line { grid-template-columns: 54px 1fr 36px; font-size: 12px; }
 }
+
+/* ---------- The Dungeon ---------- */
+.dungeon-card { display: flex; gap: 20px; align-items: flex-start; border-top: 8px solid var(--bc); margin-bottom: 22px; }
+.dungeon-art { position: relative; flex-shrink: 0; background: #1e2a23; border: var(--b-thin); border-radius: 14px; padding: 10px; }
+.dungeon-art .floor-tag { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); white-space: nowrap; background: var(--sun); border: var(--b-thin); border-radius: 999px; padding: 2px 10px; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; }
+.dungeon-body { flex: 1; min-width: 0; }
+.dungeon-body h2 { margin: 4px 0 6px; }
+.dungeon-body p { margin: 0 0 10px; }
+.dungeon-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.cap-bar { height: 8px; border-radius: 999px; background: var(--paper-2); border: var(--b-thin); overflow: hidden; margin-bottom: 10px; max-width: 360px; }
+.cap-bar span { display: block; height: 100%; background: var(--sun); }
+.dungeon-card .odds { margin-bottom: 12px; font-size: 14px; }
+.dungeon-card .odds summary { cursor: pointer; font-weight: 700; }
+.dungeon-card .odds ul { margin: 6px 0 0; padding-left: 18px; }
+@media (max-width: 560px) { .dungeon-card { flex-direction: column; align-items: center; text-align: center; } .dungeon-stats, .dungeon-card .row-wrap { justify-content: center; } .cap-bar { margin-inline: auto; } }
+.dungeon-teaser { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; text-decoration: none; color: inherit; border-left: 8px solid var(--tomato); }
+.dungeon-teaser span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dungeon-teaser small { color: var(--muted, #6b7280); font-size: 14px; }
+.dungeon-teaser:hover { transform: translateY(-1px); }

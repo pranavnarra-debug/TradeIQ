@@ -15,10 +15,10 @@ const Arena = (() => {
     view.innerHTML = '<div class="page wrap"><div class="empty-state"><span class="spinner"></span> Entering the arena...</div></div>';
     const qs = new URLSearchParams(location.search);
     if (qs.get('tab') === 'quests') tab = 'quests';
-    const [battles, quests] = await Promise.all([api.get('/battles'), api.get('/quests')]);
+    const [battles, quests, dungeon] = await Promise.all([api.get('/battles'), api.get('/quests'), api.get('/battles/dungeon')]);
     const readyQuests = [...quests.daily, ...quests.weekly, ...quests.story].filter((q) => q.done && !q.claimed).length;
     view.innerHTML = `<div class="page wrap arena-page">
-      <div class="page-head"><div><span class="eyebrow">Arena</span><h1>Fight bosses. Finish quests.</h1>
+      <div class="page-head"><div><span class="eyebrow">Arena</span><h1>Fight, loot, level up.</h1>
         <p>Answer questions to charge your weapon, then make the shot count. Your gear's stats and buffs all apply.</p></div>
         <div class="spacer"></div>
         <div class="tabs"><button data-tab="bosses" class="${tab === 'bosses' ? 'on' : ''}">Bosses</button>
@@ -27,7 +27,30 @@ const Arena = (() => {
       <div id="arena-body"></div></div>`;
     view.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; render(); });
     const body = document.getElementById('arena-body');
-    if (tab === 'bosses') drawBosses(body, battles); else drawQuests(body, quests);
+    if (tab === 'bosses') { drawBosses(body, battles); body.insertAdjacentHTML('afterbegin', dungeonCard(dungeon)); } else drawQuests(body, quests);
+  }
+
+  // ---------------- the Dungeon (open from day one)
+  function dungeonCard(d) {
+    const m = d.monster;
+    const pct = (n, cap) => Math.min(100, Math.round((n / cap) * 100));
+    return `<section class="card dungeon-card" style="--bc:${m.look?.body || '#8b5cf6'}">
+      <div class="dungeon-art">${BossArt.svg(m, 104)}<span class="floor-tag">Floor ${d.nextFloor}</span></div>
+      <div class="dungeon-body">
+        <span class="px-label">The Dungeon · open to everyone</span>
+        <h2>${d.currentFloor ? `Keep climbing: floor ${d.nextFloor}` : 'Start a run'}</h2>
+        <p>An endless climb. Every floor is a fight, every 5th is a Guardian, and monsters drop gear (${d.lootCount} pieces to find). Lose and your run starts over at floor 1.</p>
+        <div class="dungeon-stats">
+          <span class="chip-tag">${Sprites.icon('trophy', 14)} Best: floor ${d.bestFloor}</span>
+          <span class="chip-tag" title="Daily cap">${Sprites.icon('coin', 14)} ${d.coinsToday}/${d.caps.coins} coins today</span>
+          <span class="chip-tag" title="Daily cap">${Sprites.icon('star', 14)} ${d.xpToday}/${d.caps.xp} XP today</span>
+        </div>
+        <div class="cap-bar" aria-hidden="true"><span style="width:${pct(d.coinsToday, d.caps.coins)}%"></span></div>
+        ${d.odds ? `<details class="odds"><summary>Drop odds</summary><p>Normal floors drop gear ${Math.round(d.odds.normalDropChance * 100)}% of the time; Guardian floors always drop. Duplicates turn into coins.</p>
+          <ul>${d.odds.bands.map((b) => `<li><b>Floors ${b.fromFloor}${b.toFloor ? `-${b.toFloor}` : '+'}:</b> ${escapeHtml(b.oddsText)}</li>`).join('')}</ul></details>` : ''}
+        <div class="row-wrap"><a class="btn btn-primary" href="/battle/dungeon">${d.currentFloor ? `Enter floor ${d.nextFloor}` : 'Enter the Dungeon'}</a>
+          <span class="muted" style="font-size:13px">Next: ${escapeHtml(m.name)} · ${m.hp} HP</span></div>
+      </div></section>`;
   }
 
   // ---------------- bosses
@@ -91,8 +114,9 @@ const Arena = (() => {
   async function fight(bossId) {
     const view = document.getElementById('view');
     view.innerHTML = '<div class="player"><div class="empty-state" style="padding-top:20vh"><span class="spinner"></span> Loading the arena...</div></div>';
-    const [list, state, cat] = await Promise.all([api.get('/battles'), api.get('/game/state'), api.get('/game/catalog')]);
-    const boss = list.bosses.find((b) => b.id === bossId);
+    const isDungeon = bossId === 'dungeon';
+    const [list, state, cat] = await Promise.all([api.get(isDungeon ? '/battles/dungeon' : '/battles'), api.get('/game/state'), api.get('/game/catalog')]);
+    const boss = isDungeon ? { ...list.monster, unlocked: true } : list.bosses.find((b) => b.id === bossId);
     if (!boss) { view.innerHTML = '<div class="page wrap"><div class="empty-state"><h2>No such boss</h2><a class="btn" href="/arena">Back to Arena</a></div></div>'; return undefined; }
     if (!boss.unlocked) {
       view.innerHTML = `<div class="page wrap"><div class="empty-state">${BossArt.svg(boss, 120)}<h2>${escapeHtml(boss.name)} is locked</h2><p>${escapeHtml(boss.unlockText)}.</p><a class="btn btn-primary" href="/learn">Go learn</a> <a class="btn" href="/arena">Back</a></div></div>`;
@@ -115,7 +139,8 @@ const Arena = (() => {
           <ol class="howto"><li>Press <span class="kbd">E</span> (or <b>Charge</b>) to open a question. Time slows down while you think.</li>
             <li>Each correct answer adds a charge pip (max 3). Wrong answers cost a pip and power the boss up.</li>
             <li>Aim and fire (<span class="kbd">Click</span> or <span class="kbd">J</span>). A charged shot hits hard, but if it misses the charge is gone.</li>
-            <li>Dodge with <span class="kbd">Shift</span>. Red zones and lines show where attacks will land.</li></ol>
+            <li>Dodge with <span class="kbd">Shift</span>. Red zones and lines show where attacks will land. Dashing again too soon leaves you winded.</li>
+            <li><b>Pop Quiz:</b> every 30 seconds the boss asks you a question. Get it right to stun them; wrong or too slow costs 5 coins.</li></ol>
           ${boss.mechanic?.type !== 'none' ? `<p class="mechanic"><b>Gimmick:</b> ${escapeHtml(boss.mechanic.text)}</p>` : ''}
           <div class="attack-list">${boss.attacks.map((a) => `<div class="atk">${Sprites.icon(PATTERN_ICON[a.pattern] || 'warning', 18)}<span><b>${escapeHtml(a.name)}</b> ${escapeHtml(a.text || '')}</span></div>`).join('')}</div>
           <label class="check-line"><input type="checkbox" id="pf-assist" ${assist ? 'checked' : ''}/><span><b>Assist mode:</b> slower boss, bigger warnings, no question timer. Same rewards.</span></label>
@@ -127,7 +152,7 @@ const Arena = (() => {
       try { localStorage.setItem('tiq_assist', assistOn ? '1' : '0'); } catch { /* ignore */ }
       UI.setBusy(e.currentTarget, true);
       try {
-        const battle = await api.post(`/battles/${boss.id}/start`);
+        const battle = await api.post(`/battles/${isDungeon ? 'dungeon' : boss.id}/start`);
         document.body.classList.add('focus-mode');
         App.hideChrome();
         await Battle.run({ boss: battle.boss, battle, appearance: state.appearance, gear, assist: assistOn });
@@ -142,10 +167,12 @@ const Arena = (() => {
   /** Small quest preview for the Learn page. */
   async function questTeaser(el) {
     try {
-      const q = await api.get('/quests');
+      const [q, d] = await Promise.all([api.get('/quests'), api.get('/battles/dungeon').catch(() => null)]);
       const list = q.daily.slice(0, 3);
-      if (!list.length) return;
-      el.innerHTML = `<div class="card quest-teaser"><div class="card-title">${Sprites.icon('fire', 20)} Today's quests<a class="btn btn-sm" href="/arena?tab=quests" style="margin-left:auto">All quests</a></div>
+      // New players: the Dungeon is open from day one, so offer a fight right away.
+      const play = d ? `<a class="card dungeon-teaser" href="/battle/dungeon">${BossArt.svg(d.monster, 56)}<span><b>${d.bestFloor ? `The Dungeon · best floor ${d.bestFloor}` : 'Play now: the Dungeon'}</b><small>${d.bestFloor ? `Climb on. Next up: ${escapeHtml(d.monster.name)} on floor ${d.nextFloor}.` : 'No lessons needed. Fight money monsters, answer questions, loot gear.'}</small></span><span class="btn btn-sm btn-primary">${d.currentFloor ? `Floor ${d.nextFloor}` : 'Fight'}</span></a>` : '';
+      if (!list.length) { el.innerHTML = play; return; }
+      el.innerHTML = `${play}<div class="card quest-teaser"><div class="card-title">${Sprites.icon('fire', 20)} Today's quests<a class="btn btn-sm" href="/arena?tab=quests" style="margin-left:auto">All quests</a></div>
         ${list.map((x) => `<div class="qt-row ${x.claimed ? 'claimed' : x.done ? 'ready' : ''}"><span>${escapeHtml(x.name)}<small>${escapeHtml(x.desc)}</small></span><span class="mono">${x.claimed ? 'Done' : `${x.progress}/${x.target}`}</span></div>`).join('')}</div>`;
     } catch { /* quests are optional on this page */ }
   }

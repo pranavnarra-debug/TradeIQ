@@ -7,7 +7,10 @@
 const AdminSection = (() => {
   let tab = 'overview';
   let charts = {};
-  let usersState = { page: 1, search: '' };
+  // AI rivals: 'hidden' (default) -> 'blended' (mixed in, unmarked, to see how well they pass) -> 'tagged'.
+  let usersState = { page: 1, search: '', bots: 'hidden' };
+  const BOT_BUTTON = { hidden: 'Show AI rivals', blended: 'Reveal which are AI', tagged: 'Hide AI rivals' };
+  const BOT_NEXT = { hidden: 'blended', blended: 'tagged', tagged: 'hidden' };
   let dbState = { table: 'users', page: 1, search: '', sort: '', dir: 'desc' };
   let listeners = false;
 
@@ -48,7 +51,7 @@ const AdminSection = (() => {
     const d = await api.get('/admin/dashboard');
     const metric = (label, val, id, icon) => `<div class="card admin-metric-card">${Sprites.icon(icon, 26)}<div class="metric-value" ${id ? `id="${id}"` : ''}>${val}</div><div class="metric-label">${label}</div></div>`;
     body.innerHTML = `<div class="admin-cards-row">
-        ${metric('Online now', d.activeNow, 'adm-online-count', 'heart')}${metric('Total users', d.totalUsers, '', 'person')}${metric('New today', d.newUsersToday, '', 'star')}
+        ${metric('Online now', d.activeNow, 'adm-online-count', 'heart')}${metric('Real users', d.totalUsers, '', 'person')}${d.aiRivals && usersState.bots !== 'hidden' ? metric('AI rivals', d.aiRivals, '', 'bolt') : ''}${metric('New today', d.newUsersToday, '', 'star')}
         ${metric('Active this week', d.activeThisWeek, '', 'fire')}${metric('Lessons completed', d.totalLessonsCompleted, '', 'book')}${metric('Exams passed', d.examsPassed, '', 'trophy')}
         ${metric('Simulated trades', d.totalTrades, '', 'chart')}${metric('Users with email', d.usersWithEmail, '', 'card')}</div>
       <div class="admin-charts-row">
@@ -84,18 +87,25 @@ const AdminSection = (() => {
   // ---------- Users ----------
   async function users() {
     const body = document.getElementById('adm-body');
-    body.innerHTML = `<div class="card"><div class="row-wrap" style="margin-bottom:14px"><input class="input" id="u-search" placeholder="Search username or email" value="${escapeHtml(usersState.search)}" style="max-width:320px" /><button class="btn btn-sm" id="u-go">Search</button></div>
+    body.innerHTML = `<div class="card"><div class="row-wrap" style="margin-bottom:14px"><input class="input" id="u-search" placeholder="Search username or email" value="${escapeHtml(usersState.search)}" style="max-width:320px" /><button class="btn btn-sm" id="u-go">Search</button>
+      <button class="btn btn-sm btn-ghost" id="u-bots">${BOT_BUTTON[usersState.bots]}</button></div>
       <div class="table-scroll" id="u-table"><div class="empty-state"><span class="spinner"></span></div></div><div class="pagination-row" id="u-pages"></div></div>`;
     const go = () => { usersState.search = document.getElementById('u-search').value.trim(); usersState.page = 1; loadUsers(); };
     document.getElementById('u-go').onclick = go;
+    document.getElementById('u-bots').onclick = (e) => {
+      usersState.bots = BOT_NEXT[usersState.bots];
+      e.currentTarget.textContent = BOT_BUTTON[usersState.bots];
+      usersState.page = 1;
+      loadUsers();
+    };
     document.getElementById('u-search').onkeydown = (e) => { if (e.key === 'Enter') go(); };
     loadUsers();
   }
 
   async function loadUsers() {
-    const d = await api.get(`/admin/users?page=${usersState.page}&limit=25&search=${encodeURIComponent(usersState.search)}`);
+    const d = await api.get(`/admin/users?page=${usersState.page}&limit=25&search=${encodeURIComponent(usersState.search)}&kind=${usersState.bots === 'hidden' ? 'humans' : 'all'}`);
     document.getElementById('u-table').innerHTML = `<table class="data-table"><thead><tr><th>User</th><th>Email</th><th>Role</th><th>XP</th><th>Lessons</th><th>Trades</th><th>Joined</th><th>Last login</th><th>Status</th></tr></thead><tbody>
-      ${d.users.map((u) => `<tr class="user-row" data-id="${u.id}"><td><b>${escapeHtml(u.username)}</b></td><td>${u.email ? `${escapeHtml(u.email)}${u.emailVerified ? ' ✓' : ''}` : '<span class="muted">none</span>'}</td>
+      ${d.users.map((u) => `<tr class="user-row" data-id="${u.id}"><td><b>${escapeHtml(u.username)}</b>${u.isBot && usersState.bots === 'tagged' ? ' <span class="chip-tag" title="AI rival (only visible to you)">AI</span>' : ''}</td><td>${u.email ? `${escapeHtml(u.email)}${u.emailVerified ? ' ✓' : ''}` : '<span class="muted">none</span>'}</td>
         <td>${u.role === 'admin' ? '<span class="chip-tag" style="background:var(--sun)">admin</span>' : 'user'}</td><td class="mono">${u.xp}</td><td>${u.lessonsCompleted}</td><td>${u.tradesCount}</td>
         <td>${new Date(u.createdAt).toLocaleDateString()}</td><td>${timeAgo(u.lastLogin)}</td>
         <td>${!u.isActive ? '<span class="chip-tag" style="background:var(--tomato-l)">deactivated</span>' : u.locked ? '<span class="chip-tag" style="background:var(--sun-l)">locked</span>' : '<span class="chip-tag" style="background:var(--mint-l)">active</span>'}</td></tr>`).join('')}

@@ -12,6 +12,8 @@ const Battle = (() => {
   const W = 960;
   const H = 600;
   const INK = '#17140f';
+  const POP_COINS = 5; // matches POP_COINS in backend/routes/battles.js
+  const POP_EVERY = 30; // seconds of play between Pop Quizzes (40 in Assist mode)
   let S = null; // current fight state
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -81,7 +83,7 @@ const Battle = (() => {
       p: {
         x: 200, y: H / 2, r: 18, vx: 0, vy: 0, face: 0,
         hp: loadout.hp + effSumFrom(loadout, 'buffer_hp'), maxHp: loadout.hp + effSumFrom(loadout, 'buffer_hp'),
-        shield: 0, pips: 0, streak: 0, iframes: 0, dashCd: 0, dashT: 0, fireCd: 0, flash: 0,
+        shield: 0, pips: 0, streak: 0, iframes: 0, dashCd: 0, dashT: 0, dashHeat: 0, fireCd: 0, flash: 0,
         damageTaken: 0, firstStrikeUsed: false, secondChanceUsed: false, hitCount: 0,
       },
       b: {
@@ -91,7 +93,7 @@ const Battle = (() => {
       },
       bullets: [], shots: [], zones: [], minions: [], floaters: [], decoys: [],
       keys: new Set(), mouse: { x: W / 2, y: H / 2 }, joy: { x: 0, y: 0, active: false },
-      q: null, qCd: 0, sinceQ: 0, telegraphMul: assist ? 1.6 : 1, speedMul,
+      q: null, qCd: 0, qChain: 0, popT: 0, popDue: false, sinceQ: 0, telegraphMul: assist ? 1.6 : 1, speedMul,
     };
     say(boss.intro, 3500);
     bindInput();
@@ -195,8 +197,13 @@ const Battle = (() => {
     if (!dx && !dy) { dx = Math.cos(p.face); dy = Math.sin(p.face); }
     const m = Math.hypot(dx, dy) || 1;
     p.vx = (dx / m) * 720; p.vy = (dy / m) * 720;
-    p.dashT = 0.18; p.iframes = Math.max(p.iframes, 0.3);
-    p.dashCd = Math.max(0.5, 1.2 - effSum('dash_cooldown') / 100);
+    // Fatigue: dashes chained close together cost more cooldown and lose their
+    // invulnerability, so dodging is about timing, not mashing Shift.
+    const tired = p.dashHeat >= 1;
+    p.dashT = 0.18; p.iframes = Math.max(p.iframes, tired ? 0.08 : 0.3);
+    p.dashCd = Math.max(0.5, 1.2 - effSum('dash_cooldown') / 100) * (1 + p.dashHeat * 0.7);
+    p.dashHeat += 1;
+    if (tired) floater(p.x, p.y - 40, 'Winded: space out your dashes', '#ffb347', 13);
   }
 
   function aimAngle(touch) {
@@ -228,6 +235,7 @@ const Battle = (() => {
       const dmg = Math.round(p.pips * (30 + 3 * power) * mult);
       S.shots.push({ x: p.x, y: p.y, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 7 + p.pips * 2, dmg, crit, charged: true, life: 1.6 });
       p.pips = 0;
+      S.qChain = 0;
       p.firstStrikeUsed = true;
       p.fireCd = 0.35;
     } else {
@@ -238,23 +246,26 @@ const Battle = (() => {
   }
 
   // ---------------------------------------------------------------- questions (Focus Time)
-  async function openQuestion() {
-    if (S.paused || S.over || S.q || S.qCd > 0) return;
-    if (S.p.pips >= 3) { floater(S.p.x, S.p.y - 40, 'Fully charged! Fire!', '#ffd23f'); return; }
-    S.q = { loading: true };
+  async function openQuestion(pop = false) {
+    if (S.paused || S.over || S.q) return;
+    if (!pop && S.qCd > 0) { floater(S.p.x, S.p.y - 40, `Charge ready in ${Math.ceil(S.qCd)}s`, '#8a96a3', 13); return; }
+    if (!pop && S.p.pips >= 3) { floater(S.p.x, S.p.y - 40, 'Fully charged! Fire!', '#ffd23f'); return; }
+    S.q = { loading: true, pop };
     S.timeScale = 0.2;
     const el = document.getElementById('b-q');
     el.hidden = false;
     el.innerHTML = '<div class="qc-inner"><span class="spinner"></span></div>';
     document.getElementById('b-hint').hidden = true;
     try {
-      const q = await api.post(`/battles/${S.battleId}/next`);
+      const q = await api.post(`/battles/${S.battleId}/next`, pop ? { pop: true } : undefined);
       const focus = S.loadout.stats.focus || 0;
-      const limit = S.assist ? Infinity : 12 + focus * 0.6 + effSum('time_bonus');
-      S.q = { ...q, deadline: performance.now() + limit * 1000, limit, picked: null };
+      // Pop Quizzes are the boss's question: a tighter clock, even in Assist mode.
+      const limit = pop ? (S.assist ? 20 : 10 + focus * 0.3) : S.assist ? Infinity : 12 + focus * 0.6 + effSum('time_bonus');
+      S.q = { ...q, pop, deadline: performance.now() + limit * 1000, limit, picked: null };
+      el.classList.toggle('pop', pop);
       const hints = eff('hint').length;
       el.innerHTML = `<div class="qc-inner">
-        <div class="qc-head"><span class="px-label">Focus Time · from "${escapeHtml(q.from)}"</span><span class="qc-timer" id="b-qt"></span></div>
+        <div class="qc-head"><span class="px-label">${pop ? `Pop Quiz from ${escapeHtml(S.boss.name)}! Wrong or too slow costs ${POP_COINS} coins` : `Focus Time · from "${escapeHtml(q.from)}"`}</span><span class="qc-timer" id="b-qt"></span></div>
         <h3>${escapeHtml(q.q)}</h3>
         <div class="qc-opts">${q.options.map((o, i) => `<button class="opt-btn" data-i="${i}"><span class="opt-key">${i + 1}</span>${escapeHtml(o)}</button>`).join('')}</div>
         ${hints ? '<button class="btn btn-sm btn-ghost" id="b-qhint">Use hint (Hoot crosses out a wrong answer)</button>' : ''}
@@ -290,12 +301,17 @@ const Battle = (() => {
       closeQuestion();
       return;
     }
+    q.answerIndex = r.answer;
     buttons.forEach((b) => {
       const i = Number(b.dataset.i);
       if (i === r.answer) b.classList.add('is-right');
       else if (i === choice) b.classList.add('is-wrong');
     });
     const p = S.p;
+    if (q.pop) {
+      if (r.correct) { S.b.stun = 1.5; floater(S.b.x, S.b.y - 60, 'Stunned!', '#ffd23f'); }
+      else { floater(p.x, p.y - 60, `-${POP_COINS} coins`, '#ff5a4e', 18); S.b.hp = Math.min(S.b.maxHp, S.b.hp + S.b.maxHp * 0.04); }
+    }
     if (r.correct) {
       p.pips = Math.min(3, p.pips + 1);
       p.streak++;
@@ -321,9 +337,12 @@ const Battle = (() => {
   }
 
   function closeQuestion() {
+    const wasPop = S.q?.pop;
+    const wrong = S.q?.picked != null && S.q.picked !== S.q.answerIndex;
     S.q = null;
     S.timeScale = 1;
-    S.qCd = 1.2;
+    // Back-to-back questions get a growing cooldown; firing a charged shot resets it.
+    if (!wasPop) { S.qChain += 1; S.qCd = Math.min(8, 1.5 + S.qChain * 1.2 + (wrong ? 1.5 : 0)); }
     S.sinceQ = 0;
     S.last = performance.now();
     const el = document.getElementById('b-q');
@@ -488,6 +507,13 @@ const Battle = (() => {
       if (left <= 0) answer(-1);
     }
     S.qCd = Math.max(0, S.qCd - rawDt);
+    // Pop Quiz: every so often the boss forces a question (waits for any open one to close).
+    S.popT += rawDt;
+    if (S.popT >= (S.assist ? 40 : POP_EVERY) && !S.q && !S.over) {
+      S.popT = 0;
+      floater(S.b.x, S.b.y - 70, 'POP QUIZ!', '#ff5a4e', 22);
+      openQuestion(true);
+    }
     S.sinceQ += dt;
     document.getElementById('b-hint').hidden = !(S.sinceQ > 8 && p.pips === 0 && !S.q);
 
@@ -507,11 +533,16 @@ const Battle = (() => {
     if (!S.joy.active) p.face = Math.atan2(S.mouse.y - p.y, S.mouse.x - p.x);
     p.iframes = Math.max(0, p.iframes - dt);
     p.dashCd = Math.max(0, p.dashCd - dt);
+    p.dashHeat = Math.max(0, p.dashHeat - dt * 0.45);
     p.fireCd = Math.max(0, p.fireCd - dt);
     p.flash = Math.max(0, p.flash - dt);
 
     // boss movement: keep a fighting distance, strafe, sidestep charged shots
-    if (b.dashT > 0) {
+    b.stun = Math.max(0, (b.stun || 0) - dt);
+    const stunned = b.stun > 0;
+    if (stunned) {
+      // a correct Pop Quiz answer stuns the boss: free shots
+    } else if (b.dashT > 0) {
       b.dashT -= dt;
       b.x = clamp(b.x + b.dvx * dt, 50, W - 50); b.y = clamp(b.y + b.dvy * dt, 50, H - 50);
       if (dist(b, p) < b.r + p.r) hurtPlayer(b.dashDmg || 15, { x: b.x, y: b.y, knock: true });
@@ -538,7 +569,7 @@ const Battle = (() => {
     if (b.tele) {
       b.tele.t -= dt;
       if (b.tele.t <= 0) { executeAttack(b.tele); b.cds[b.tele.i] = (b.tele.a.cooldown || 3) * (enraged() ? 0.8 : 1) / (S.assist ? 0.75 : 1); b.tele = null; }
-    } else if (b.dashT <= 0) {
+    } else if (b.dashT <= 0 && !stunned) {
       for (let i = 0; i < b.cds.length; i++) b.cds[i] -= dt;
       const ready = b.cds.findIndex((c) => c <= 0);
       if (ready >= 0) startAttack(ready);
@@ -727,23 +758,28 @@ const Battle = (() => {
 
   function showResult(state, r) {
     const won = r.result === 'won' && !r.error;
+    const dg = r.dungeon;
     const acc = r.correct + r.wrong ? Math.round((r.correct / (r.correct + r.wrong)) * 100) : 0;
     const stage = document.getElementById('b-stage');
     const el = document.createElement('div');
     el.className = 'arena-result';
     el.innerHTML = `<div class="card result">
       ${won ? Sprites.character('chip', 96) : Sprites.character('grizz', 96)}
-      <h2>${won ? `${escapeHtml(state.boss.name)} defeated!` : r.error ? 'Something went wrong' : 'Knocked out.'}</h2>
-      <p class="lead">${won ? escapeHtml(state.boss.defeat || '') : r.error ? escapeHtml(r.error) : 'No penalty. Study the questions you missed and try again.'}</p>
+      <h2>${won ? (dg ? `Floor ${dg.floor} cleared!` : `${escapeHtml(state.boss.name)} defeated!`) : r.error ? 'Something went wrong' : dg ? `Run over on floor ${dg.floor}` : 'Knocked out.'}</h2>
+      <p class="lead">${won ? escapeHtml(state.boss.defeat || '') : r.error ? escapeHtml(r.error) : dg ? `Best ever: floor ${dg.best}. A new run starts at floor 1, and your loot stays with you.` : 'No penalty. Study the questions you missed and try again.'}</p>
+      ${won && dg?.newBest ? `<p class="drop">${Sprites.icon('trophy', 22)}<span><b>New best floor!</b></span></p>` : ''}
       ${!r.error ? `<div class="reward-row">
         ${won ? `<div class="reward"><span class="r-num">+${r.coins}</span><span class="px-label">Coins</span></div><div class="reward"><span class="r-num">+${r.xp}</span><span class="px-label">XP</span></div>` : ''}
         <div class="reward"><span class="r-num">${acc}%</span><span class="px-label">Accuracy</span></div>
         <div class="reward"><span class="r-num">${r.seconds}s</span><span class="px-label">Time</span></div>
         <div class="reward"><span class="r-num">${r.damageTaken}</span><span class="px-label">Dmg taken</span></div></div>` : ''}
       ${r.item ? `<p class="drop">${Sprites.icon('gem', 22)}<span>New item: <b>${escapeHtml(r.item.name)}</b> <span class="muted">(${r.item.rarity})</span>. Equip it in your Hideout.</span></p>` : ''}
-      ${won && !r.firstWin ? `<p class="muted" style="font-size:14px">Repeat wins pay a small coin bonus once a day.</p>` : ''}
+      ${won && !r.firstWin && !dg ? `<p class="muted" style="font-size:14px">Repeat wins pay a small coin bonus once a day.</p>` : ''}
+      ${dg?.duplicateCoins ? `<p class="drop">${Sprites.icon('coin', 22)}<span>Duplicate drop turned into <b>${dg.duplicateCoins} coins</b>.</span></p>` : ''}
+      ${dg?.capped ? '<p class="muted" style="font-size:14px">You hit today\'s Dungeon coin/XP cap. Loot still drops; caps reset at midnight.</p>' : ''}
+      ${r.coinsLost ? `<p class="drop" style="color:var(--tomato)">${Sprites.icon('warning', 22)}<span>Pop Quizzes cost you <b>${r.coinsLost} coins</b>.</span></p>` : ''}
       <div class="row-wrap" style="justify-content:center;margin-top:12px">
-        <button class="btn btn-primary" id="r-again">${won ? 'Fight again' : 'Try again'}</button>
+        <button class="btn btn-primary" id="r-again">${dg ? (won ? `Floor ${dg.floor + 1}` : 'New run') : won ? 'Fight again' : 'Try again'}</button>
         ${r.item ? '<a class="btn" href="/hideout">Open Hideout</a>' : ''}
         <a class="btn" href="/arena">Back to Arena</a></div></div>`;
     stage.appendChild(el);

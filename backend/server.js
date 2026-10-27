@@ -26,6 +26,7 @@ import questRoutes from './routes/quests.js';
 import { startMarketCacheJobs } from './jobs/marketCache.js';
 import { startDataRetentionJobs } from './jobs/dataRetention.js';
 import { startEmailJobs } from './jobs/emailJobs.js';
+import { startRivalJobs } from './jobs/rivals.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -237,6 +238,7 @@ io.on('connection', async (socket) => {
 startMarketCacheJobs();
 startDataRetentionJobs();
 startEmailJobs();
+startRivalJobs();
 
 server.listen(config.port, () => {
   console.log(`TradeIQ listening on ${config.appUrl} (port ${config.port}, ${config.isProd ? 'production' : 'development'})`);

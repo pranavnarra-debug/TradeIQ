@@ -71,14 +71,22 @@ export function unlockText(boss) {
 
 /** Every multiple-choice question from the boss's question pool. */
 function poolFor(boss) {
-  const u = unit(boss.questionPool.unit);
-  if (!u) return [];
-  const chapters = boss.questionPool.chapters === 'all'
-    ? u.chapters
-    : (boss.questionPool.chapters || []).map((n) => u.chapters[Number(n) - 1]).filter(Boolean);
+  let lessons;
+  if (boss.questionPool.lessons) {
+    // An explicit lesson list (the Dungeon: starter chapter + what the player finished).
+    const want = new Set(boss.questionPool.lessons);
+    lessons = UNITS.flatMap((u) => u.chapters.flatMap((c) => c.lessons)).filter((l) => want.has(l.id));
+  } else {
+    const u = unit(boss.questionPool.unit);
+    if (!u) return [];
+    const chapters = boss.questionPool.chapters === 'all'
+      ? u.chapters
+      : (boss.questionPool.chapters || []).map((n) => u.chapters[Number(n) - 1]).filter(Boolean);
+    lessons = chapters.flatMap((ch) => ch.lessons);
+  }
   const out = [];
-  for (const ch of chapters) {
-    for (const lesson of ch.lessons) {
+  {
+    for (const lesson of lessons) {
       lesson.steps.forEach((s, si) => {
         if (s.type === 'quiz') s.questions.forEach((q, qi) => out.push({ ref: [lesson.id, si, qi], q: q.q, options: q.options, answer: q.answer, explain: q.explain }));
         if (s.type === 'check' && s.options.length >= 3) out.push({ ref: [lesson.id, si, -1], q: s.question, options: s.options, answer: s.answer, explain: s.explain });
@@ -132,5 +140,5 @@ export function minCorrectToWin(boss, power) {
 export function publicBoss(b) {
   // Everything the client needs to render and run the fight (no secrets here).
   const { questionPool, ...rest } = b;
-  return { ...rest, unlockText: unlockText(b) };
+  return { ...rest, unlockText: b.unlock ? unlockText(b) : null };
 }
