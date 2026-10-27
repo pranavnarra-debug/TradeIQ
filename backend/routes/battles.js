@@ -23,7 +23,9 @@ const router = express.Router();
 router.use(authenticate);
 
 const UUID = /^[0-9a-f-]{36}$/;
-const MIN_WIN_SECONDS = 20;
+// The fastest a real win can be: small dungeon monsters go down quickly, big
+// bosses can't. Wins also need enough correct answers (minCorrectToWin).
+const minWinSeconds = (boss) => Math.min(20, 6 + boss.hp / 20);
 // Pop Quizzes: the client asks one about every 30s of play; the server expects
 // at least one per POP_EXPECT_SECONDS of wall time (looser, to allow for
 // pauses and slow connections). Each wrong or skipped one costs coins.
@@ -312,7 +314,7 @@ router.post('/:battleId/finish', async (req, res, next) => {
       const boss = bossFor(b.boss_id);
       const seconds = (Date.now() - new Date(b.started_at).getTime()) / 1000;
       const need = minCorrectToWin(boss, b.loadout?.stats?.power);
-      if (result === 'won' && (b.correct < need || seconds < MIN_WIN_SECONDS)) {
+      if (result === 'won' && (b.correct < need || seconds < minWinSeconds(boss))) {
         await db.query(`UPDATE battles SET status = 'abandoned', finished_at = NOW() WHERE id = $1`, [b.id]);
         return { status: 400, error: "That win doesn't add up. Every win needs enough correct answers behind it." };
       }
