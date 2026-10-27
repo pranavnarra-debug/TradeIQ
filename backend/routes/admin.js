@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth.js';
 import { adminOnly } from '../middleware/adminOnly.js';
 import { LESSONS, LESSON_ORDER, UNITS } from '../content/index.js';
 import { runStreakReminders, runWeeklyDigest } from '../jobs/emailJobs.js';
+import { awardXp, levelFor } from '../services/progress.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -194,6 +195,33 @@ router.patch('/users/:id', async (req, res, next) => {
     await query('DELETE FROM refresh_tokens WHERE user_id = $1', [targetId]);
     await audit(req, targetId, 'update_user', { role, isActive });
     res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/users/:id/grant  { xp, coins, note }  -> gift XP and/or coins (logged)
+router.post('/users/:id/grant', async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(404).json({ error: 'User not found' });
+    const xp = Math.trunc(Number(req.body?.xp) || 0);
+    const coins = Math.trunc(Number(req.body?.coins) || 0);
+    const note = String(req.body?.note || '').trim().slice(0, 200);
+    if (xp < 0 || coins < 0 || xp > 1_000_000 || coins > 100_000 || (!xp && !coins)) {
+      return res.status(400).json({ error: 'Grant 1 to 1,000,000 XP and/or 1 to 100,000 coins' });
+    }
+    const out = await withTransaction(async (db) => {
+      const u = (await db.query('SELECT id, username, xp FROM users WHERE id = $1 FOR UPDATE', [id])).rows[0];
+      if (!u) return null;
+      await awardXp(db, id, 'admin_grant', note || null, xp, coins);
+      if (coins) await db.query(`INSERT INTO coin_events (user_id, amount, reason, ref) VALUES ($1, $2, 'admin_grant', $3)`, [id, coins, note || null]);
+      const after = (await db.query('SELECT xp, coins FROM users WHERE id = $1', [id])).rows[0];
+      return { username: u.username, xp: after.xp, coins: after.coins, level: levelFor(after.xp) };
+    });
+    if (!out) return res.status(404).json({ error: 'User not found' });
+    await audit(req, id, 'grant', { xp, coins, note });
+    res.json({ message: `Gave ${out.username} ${xp.toLocaleString()} XP and ${coins.toLocaleString()} coins. Now level ${out.level.level} (${out.level.title}).`, ...out });
   } catch (err) {
     next(err);
   }

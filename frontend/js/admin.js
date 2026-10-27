@@ -134,13 +134,22 @@ const AdminSection = (() => {
       <h4>Lessons (${d.lessonProgress.length}) · Exams: ${d.exams.map((e) => `${e.unit_id} ${e.passed ? '✓' : '✗'} ${e.best_score}%`).join(', ') || 'none'}</h4>
       <div style="max-height:160px;overflow:auto">${d.lessonProgress.slice(0, 50).map((l) => `<div class="recent-reg-item"><span>${escapeHtml(l.title)}</span><span class="mono">${l.best_score}%</span></div>`).join('') || '<p class="muted">None yet</p>'}</div>
       <h4>Actions</h4><div class="row-wrap">
-        <button class="btn btn-sm" data-a="unlock">Unlock login</button><button class="btn btn-sm" data-a="revoke">Sign out everywhere</button>
+        <button class="btn btn-sm" data-a="unlock">Unlock login</button><button class="btn btn-sm" data-a="revoke">Sign out everywhere</button><button class="btn btn-sm btn-sun" data-a="grant">Grant XP / coins</button>
         ${isMe ? '' : `${u.role === 'admin' ? '<button class="btn btn-sm" data-a="role">Remove admin</button>' : ''}
         <button class="btn btn-sm" data-a="active">${u.isActive ? 'Deactivate' : 'Reactivate'}</button><button class="btn btn-sm btn-danger" data-a="delete">Delete user</button>`}
       </div>`, { wide: true });
     m.el.querySelectorAll('[data-a]').forEach((b) => b.onclick = async () => {
       try {
         const a = b.dataset.a;
+        if (a === 'grant') {
+          const xp = Number(prompt(`XP to give ${u.username}:`, '0'));
+          if (!Number.isFinite(xp)) return;
+          const coins = Number(prompt('Coins to give:', '0'));
+          if (!Number.isFinite(coins) || (!xp && !coins)) return;
+          const note = prompt('Note for the audit log (optional):', '') || '';
+          UI.toast((await api.post(`/admin/users/${id}/grant`, { xp, coins, note })).message, 'success');
+          m.close?.(); userModal(id); return;
+        }
         if (a === 'unlock') UI.toast((await api.post(`/admin/users/${id}/unlock`)).message, 'success');
         if (a === 'revoke') UI.toast((await api.post(`/admin/users/${id}/revoke-sessions`)).message, 'success');
         if (a === 'role') {
