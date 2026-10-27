@@ -402,6 +402,7 @@ const Battle = (() => {
   /** minor = not a boss attack (mobs, minions, settlement): it can't open a discount_window. */
   function hurtPlayer(base, src, minor) {
     const p = S.p;
+    if (src?.mob) minor = true;
     if (p.iframes > 0 || S.over) return;
     if (has('dodge') && Math.random() < clamp(effSum('dodge'), 0, 40) / 100) {
       floater(p.x, p.y - 30, 'Dodged!', '#3d8bfd');
@@ -680,11 +681,11 @@ const Battle = (() => {
       s.age = (s.age || 0) + dt;
       if (s.grow) { // balloon: swells, then pops into a ring
         s.r = Math.min(s.maxR, s.r + s.grow * dt);
-        if (s.age >= s.popAt) { s.life = 0; for (let k = 0; k < s.popN; k++) spawned.push({ x: s.x, y: s.y, vx: Math.cos((k / s.popN) * Math.PI * 2) * 150, vy: Math.sin((k / s.popN) * Math.PI * 2) * 150, r: 7, dmg: s.dmg, life: 4 }); continue; }
+        if (s.age >= s.popAt) { s.life = 0; for (let k = 0; k < s.popN; k++) spawned.push({ x: s.x, y: s.y, vx: Math.cos((k / s.popN) * Math.PI * 2) * 150, vy: Math.sin((k / s.popN) * Math.PI * 2) * 150, r: 7, dmg: s.dmg, life: 4, mob: s.mob }); continue; }
       }
       if (s.splitEvery && s.age >= s.splitEvery) { // pyramid: every bullet becomes two
         s.life = 0;
-        if (s.splits > 0) { const a0 = Math.atan2(s.vy, s.vx); const v = Math.hypot(s.vx, s.vy); for (const d of [-0.45, 0.45]) spawned.push({ x: s.x, y: s.y, vx: Math.cos(a0 + d) * v, vy: Math.sin(a0 + d) * v, r: Math.max(6, s.r - 2), dmg: s.dmg, life: 4, splitEvery: s.splitEvery, splits: s.splits - 1 }); }
+        if (s.splits > 0) { const a0 = Math.atan2(s.vy, s.vx); const v = Math.hypot(s.vx, s.vy); for (const d of [-0.45, 0.45]) spawned.push({ x: s.x, y: s.y, vx: Math.cos(a0 + d) * v, vy: Math.sin(a0 + d) * v, r: Math.max(6, s.r - 2), dmg: s.dmg, life: 4, splitEvery: s.splitEvery, splits: s.splits - 1, mob: s.mob }); }
         continue;
       }
       if (s.holdAt != null) { // shuffle: freeze mid-air, then re-aim at you
@@ -724,11 +725,11 @@ const Battle = (() => {
         // a shrinking safe circle: outside it hurts
         z.r = z.r0 + (z.r1 - z.r0) * Math.min(1, z.t / z.dur);
         z.tick = (z.tick || 0) - dt;
-        if (z.t > z.fade && z.tick <= 0 && Math.hypot(z.x - p.x, z.y - p.y) > z.r) { z.tick = 0.6; hurtPlayer(z.dmg, null); }
+        if (z.t > z.fade && z.tick <= 0 && Math.hypot(z.x - p.x, z.y - p.y) > z.r) { z.tick = 0.6; hurtPlayer(z.dmg, null, z.mob); }
       } else if (z.dur) {
         // lingering pool: hurts while you stand in it
         z.tick = (z.tick || 0) - dt;
-        if (z.t > z.fade && z.tick <= 0 && Math.hypot(z.x - p.x, z.y - p.y) < z.r + p.r * 0.3) { z.tick = 0.6; hurtPlayer(z.dmg, null); }
+        if (z.t > z.fade && z.tick <= 0 && Math.hypot(z.x - p.x, z.y - p.y) < z.r + p.r * 0.3) { z.tick = 0.6; hurtPlayer(z.dmg, null, z.mob); }
       } else if (!z.hit && z.t >= z.fade) { z.hit = true; if (Math.hypot(z.x - p.x, z.y - p.y) < z.r + p.r * 0.5) hurtPlayer(z.dmg, z); }
     }
     S.zones = S.zones.filter((z) => z.t < z.fade + (z.dur || 0.35));
@@ -843,8 +844,9 @@ const Battle = (() => {
     return {
       p: S.p, b: S.b, bossActive: S.bossActive, W, H, dt, mobs: S.mobs,
       hurtPlayer: (d, src) => hurtPlayer(d, src, true), floater,
-      bullet: (x, y, ang, v, r, dmg, extra = {}) => S.bullets.push({ x, y, vx: Math.cos(ang) * v * S.speedMul, vy: Math.sin(ang) * v * S.speedMul, r, dmg, life: 5, ...extra }),
-      zone: (z) => S.zones.push(z),
+      // mob: true marks mob-made hazards, which can't open a discount_window
+      bullet: (x, y, ang, v, r, dmg, extra = {}) => S.bullets.push({ x, y, vx: Math.cos(ang) * v * S.speedMul, vy: Math.sin(ang) * v * S.speedMul, r, dmg, life: 5, mob: true, ...extra }),
+      zone: (z) => { z.mob = true; S.zones.push(z); },
       healBoss: (n) => { S.b.hp = Math.min(S.b.maxHp, S.b.hp + n); },
       spawn: (type, x, y, elite, ready) => { const m = Mobs.create(type, x, y, elite); if (ready) { m.state = 'go'; } S.mobs.push(m); },
       drop: (d) => S.drops.push(d),
