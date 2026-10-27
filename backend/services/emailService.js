@@ -50,7 +50,12 @@ async function logEmail(userId, kind, status, providerId, error) {
  * Railway). Without RESEND_API_KEY (local dev) the email is printed to the
  * console instead so links can still be clicked.
  */
+// Reminders and digests are commercial email: CAN-SPAM requires a physical
+// postal address in them. Without POSTAL_ADDRESS they are not sent at all.
+const COMMERCIAL = new Set(['streak_reminder', 'weekly_digest']);
+
 async function send({ userId, kind, to, subject, html, unsubscribeUrl }) {
+  if (COMMERCIAL.has(kind) && !config.site.postalAddress) return { skipped: 'no POSTAL_ADDRESS set' };
   if (!to) return { skipped: true };
   if (!config.email.resendApiKey) {
     const link = /href="([^"]+)"/.exec(html)?.[1];

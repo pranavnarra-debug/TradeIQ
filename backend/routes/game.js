@@ -1,5 +1,6 @@
 // Hideout API: avatar appearance, inventory, equipment and the item shop.
 import express from 'express';
+import { isAdmin } from '../services/adminAccess.js';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate } from '../middleware/auth.js';
 import { UNITS, unitLessonIds } from '../content/index.js';
@@ -45,7 +46,7 @@ export async function ensureStarterKit(db, userId) {
   }
 }
 
-async function loadState(db, userId) {
+async function loadState(db, userId, admin = false) {
   await ensureStarterKit(db, userId);
   const [user, owned, equipped, lessons, exams] = await Promise.all([
     db.query('SELECT avatar_config, coins FROM users WHERE id = $1', [userId]),
@@ -61,14 +62,15 @@ async function loadState(db, userId) {
     inventory: owned.rows.filter((r) => ITEMS.has(r.item_id)).map((r) => ({ id: r.item_id, source: r.source, at: r.acquired_at })),
     equipment,
     ...computeStats(Object.values(equipment)),
-    unlockedWorlds: unlockedWorlds({ passedExams: new Set(exams.rows.map((r) => r.unit_id)) }),
+    unlockedWorlds: admin ? [1, 2, 3, 4] : unlockedWorlds({ passedExams: new Set(exams.rows.map((r) => r.unit_id)) }),
+    admin,
   };
 }
 
 // GET /api/game/state
 router.get('/state', async (req, res, next) => {
   try {
-    res.json(await withTransaction((db) => loadState(db, req.user.userId)));
+    res.json(await withTransaction((db) => loadState(db, req.user.userId, isAdmin(req))));
   } catch (err) {
     next(err);
   }
@@ -81,7 +83,7 @@ router.put('/appearance', async (req, res, next) => {
     if (error) return res.status(400).json({ error });
     const cur = (await query('SELECT avatar_config FROM users WHERE id = $1', [req.user.userId])).rows[0]?.avatar_config || {};
     await query('UPDATE users SET avatar_config = $1 WHERE id = $2', [JSON.stringify({ ...DEFAULT_APPEARANCE, ...cur, ...value }), req.user.userId]);
-    res.json(await withTransaction((db) => loadState(db, req.user.userId)));
+    res.json(await withTransaction((db) => loadState(db, req.user.userId, isAdmin(req))));
   } catch (err) {
     next(err);
   }
@@ -95,7 +97,7 @@ router.put('/equip', async (req, res, next) => {
     const state = await withTransaction(async (db) => {
       if (itemId == null) {
         await db.query('DELETE FROM user_equipment WHERE user_id = $1 AND slot = $2', [req.user.userId, slot]);
-        return loadState(db, req.user.userId);
+        return loadState(db, req.user.userId, isAdmin(req));
       }
       const item = ITEMS.get(String(itemId));
       if (!item) return { error: 'Unknown item', status: 400 };
@@ -107,7 +109,7 @@ router.put('/equip', async (req, res, next) => {
          ON CONFLICT (user_id, slot) DO UPDATE SET item_id = EXCLUDED.item_id, equipped_at = NOW()`,
         [req.user.userId, slot, item.id]
       );
-      return loadState(db, req.user.userId);
+      return loadState(db, req.user.userId, isAdmin(req));
     });
     if (state.error) return res.status(state.status).json({ error: state.error });
     res.json(state);
@@ -121,18 +123,23 @@ router.post('/buy', async (req, res, next) => {
   try {
     const item = ITEMS.get(String(req.body?.itemId || ''));
     if (!item) return res.status(400).json({ error: 'Unknown item' });
-    if (item.unlockKind !== 'shop') return res.status(400).json({ error: `${item.name} can't be bought. ${item.unlockKind === 'starter' ? 'Everyone already has it.' : `Earn it: ${item.unlock}`}` });
+    // The site owner's admin account can take any item for free, to test gear.
+    if (item.unlockKind !== 'shop' && !isAdmin(req)) return res.status(400).json({ error: `${item.name} can't be bought. ${item.unlockKind === 'starter' ? 'Everyone already has it.' : `Earn it: ${item.unlock}`}` });
     const result = await withTransaction(async (db) => {
-      const before = await loadState(db, req.user.userId);
+      const before = await loadState(db, req.user.userId, isAdmin(req));
       if (!before.unlockedWorlds.includes(item.world)) return { error: `Pass the World ${item.world - 1} final exam to unlock World ${item.world} gear.`, status: 403 };
       if (before.inventory.some((i) => i.id === item.id)) return { error: 'You already own this', status: 400 };
       // Row lock on the user so two purchases can't spend the same coins.
       const u = (await db.query('SELECT coins FROM users WHERE id = $1 FOR UPDATE', [req.user.userId])).rows[0];
+      if (isAdmin(req)) {
+        await db.query('INSERT INTO user_items (user_id, item_id, source) VALUES ($1, $2, $3)', [req.user.userId, item.id, 'admin']);
+        return loadState(db, req.user.userId, true);
+      }
       if (u.coins < item.price) return { error: `You need ${item.price - u.coins} more coins`, status: 400 };
       await db.query('UPDATE users SET coins = coins - $1 WHERE id = $2', [item.price, req.user.userId]);
       await db.query('INSERT INTO user_items (user_id, item_id, source) VALUES ($1, $2, $3)', [req.user.userId, item.id, 'shop']);
       await db.query('INSERT INTO coin_events (user_id, amount, reason, ref) VALUES ($1, $2, $3, $4)', [req.user.userId, -item.price, 'shop', item.id]);
-      return loadState(db, req.user.userId);
+      return loadState(db, req.user.userId, isAdmin(req));
     });
     if (result.error) return res.status(result.status).json({ error: result.error });
     res.json(result);

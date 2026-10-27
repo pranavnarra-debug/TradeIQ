@@ -12,6 +12,7 @@ import { ITEMS, computeStats } from '../services/game.js';
 import { awardXp, touchStreak, checkAchievements, levelFor } from '../services/progress.js';
 import { logActivity } from '../services/activity.js';
 import { ensureStarterKit } from './game.js';
+import { isAdmin } from '../services/adminAccess.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -19,7 +20,7 @@ router.use(authenticate);
 const UUID = /^[0-9a-f-]{36}$/;
 const MIN_WIN_SECONDS = 20;
 
-async function playerContext(db, userId) {
+async function playerContext(db, userId, admin = false) {
   // New players may reach the Arena before ever opening the Hideout.
   await ensureStarterKit(db, userId);
   const [done, exams, equipped, wins] = await Promise.all([
@@ -36,6 +37,7 @@ async function playerContext(db, userId) {
   const { stats, effects, sets } = computeStats(equipped.rows.map((r) => r.item_id).filter((id) => ITEMS.has(id)));
   return {
     completed,
+    admin,
     worldsCleared: exams.rows[0].n,
     loadout: { hp: 100 + 10 * exams.rows[0].n, stats, effects, sets },
     wins: new Map(wins.rows.map((r) => [r.boss_id, r])),
@@ -48,7 +50,7 @@ function bossStatus(boss, ctx) {
   const w = ctx.wins.get(boss.id);
   return {
     ...publicBoss(boss),
-    unlocked: req.length > 0 && done === req.length,
+    unlocked: ctx.admin || (req.length > 0 && done === req.length),
     progress: { done, total: req.length },
     wins: w?.wins || 0,
     bestMs: w?.best_ms ?? null,
@@ -61,7 +63,7 @@ function bossStatus(boss, ctx) {
 // GET /api/battles
 router.get('/', async (req, res, next) => {
   try {
-    const ctx = await playerContext({ query }, req.user.userId);
+    const ctx = await playerContext({ query }, req.user.userId, isAdmin(req));
     res.json({ bosses: BOSSES.map((b) => bossStatus(b, ctx)), loadout: ctx.loadout });
   } catch (err) {
     next(err);
@@ -73,7 +75,7 @@ router.post('/:bossId/start', async (req, res, next) => {
   try {
     const boss = BOSS_BY_ID.get(req.params.bossId);
     if (!boss) return res.status(404).json({ error: 'No such boss' });
-    const ctx = await playerContext({ query }, req.user.userId);
+    const ctx = await playerContext({ query }, req.user.userId, isAdmin(req));
     const status = bossStatus(boss, ctx);
     if (!status.unlocked) return res.status(403).json({ error: `${status.unlockText} to challenge ${boss.name}.` });
     const deck = drawQuestions(boss);

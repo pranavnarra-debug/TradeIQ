@@ -100,12 +100,13 @@ const Hideout = (() => {
 
   // ---------- shop ----------
   function drawShop(el) {
-    const forSale = cat.items.filter((i) => i.unlockKind === 'shop' && (slotFilter === 'all' || i.slot === slotFilter));
+    // Admin sees every item (boss drops and quest rewards too) and takes them free.
+    const forSale = cat.items.filter((i) => (st.admin || i.unlockKind === 'shop') && (slotFilter === 'all' || i.slot === slotFilter));
     const worlds = [...new Set(forSale.map((i) => i.world))].sort();
     el.innerHTML = `${filters()}${worlds.map((w) => {
       const open = st.unlockedWorlds.includes(w);
       return `<div class="shop-world"><h4>${open ? '' : Sprites.icon('lock', 16)} World ${w}: ${WORLD_NAMES[w]} ${open ? '' : `<span class="muted" style="font-weight:500;font-size:13px">Pass the World ${w - 1} exam to unlock</span>`}</h4>
-        <div class="item-grid ${open ? '' : 'locked'}">${forSale.filter((i) => i.world === w).map((i) => tile(i, owns(i.id) ? '<span class="owned-badge">Owned</span>' : `<span class="price-badge">${Sprites.icon('coin', 12)}${i.price}</span>`)).join('')}</div></div>`;
+        <div class="item-grid ${open ? '' : 'locked'}">${forSale.filter((i) => i.world === w).map((i) => tile(i, owns(i.id) ? '<span class="owned-badge">Owned</span>' : st.admin ? '<span class="price-badge">Free</span>' : `<span class="price-badge">${Sprites.icon('coin', 12)}${i.price}</span>`)).join('')}</div></div>`;
     }).join('') || '<div class="empty-state">Nothing for sale in this slot yet.</div>'}<div id="item-detail"></div>`;
     wireFilters(el);
     el.querySelectorAll('[data-item]').forEach((b) => b.onclick = () => { selected = b.dataset.item; draw(); });
@@ -130,6 +131,7 @@ const Hideout = (() => {
         <p class="muted flavor">"${escapeHtml(it.flavor)}"</p>
         <div class="row-wrap">${mode === 'owned'
     ? (eq ? `<button class="btn btn-sm" data-unequip>Take off</button>` : `<button class="btn btn-sm btn-primary" data-equip>Equip</button>`)
+    : st.admin ? '<button class="btn btn-sm btn-sun" data-buy>Take it (admin, free)</button>'
     : (open ? `<button class="btn btn-sm btn-sun" data-buy ${st.coins < it.price ? 'disabled' : ''}>${Sprites.icon('coin', 14)} Buy for ${it.price}</button>${st.coins < it.price ? `<span class="muted" style="font-size:13px">Need ${it.price - st.coins} more coins</span>` : ''}`
       : `<span class="muted">Pass the World ${it.world - 1} exam to unlock</span>`)}
           ${mode === 'shop' ? '<button class="btn btn-sm btn-ghost" data-preview>Preview on me</button>' : ''}</div>
@@ -140,7 +142,7 @@ const Hideout = (() => {
     el.querySelector('[data-buy]')?.addEventListener('click', go(async () => {
       apply(await api.post('/game/buy', { itemId: it.id }));
       UI.toast(`${it.name} added to your inventory`, 'reward', { icon: 'gem' });
-      UI.cameo('penny', it.price >= 100 ? 'Big purchase! Hope it was in the budget.' : 'Nice pick. Equip it from your inventory.', 'happy', 2600);
+      if (!st.admin) UI.cameo('penny', it.price >= 100 ? 'Big purchase! Hope it was in the budget.' : 'Nice pick. Equip it from your inventory.', 'happy', 2600);
     }));
     el.querySelector('[data-preview]')?.addEventListener('click', () => {
       const gear = equippedItems().filter((g) => g.slot !== it.slot).concat(it);

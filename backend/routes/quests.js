@@ -1,4 +1,5 @@
 import express from 'express';
+import { isAdmin } from '../services/adminAccess.js';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate } from '../middleware/auth.js';
 import { QUEST_BY_ID, periods, countSignal, activeQuests } from '../services/quests.js';
@@ -8,7 +9,7 @@ import { BOSSES, requiredLessons } from '../services/battles.js';
 const router = express.Router();
 router.use(authenticate);
 
-async function board(db, userId) {
+async function board(db, userId, admin = false) {
   const per = await periods(db, userId);
   const [claims, exams, eq, done] = await Promise.all([
     db.query('SELECT quest_id, period_key FROM quest_claims WHERE user_id = $1', [userId]),
@@ -17,11 +18,11 @@ async function board(db, userId) {
     db.query('SELECT lesson_id FROM lesson_completions WHERE user_id = $1', [userId]),
   ]);
   const completed = new Set(done.rows.map((r) => r.lesson_id));
-  const bossUnlocked = BOSSES.some((b) => { const req = requiredLessons(b); return req.length && req.every((id) => completed.has(id)); });
+  const bossUnlocked = admin || BOSSES.some((b) => { const req = requiredLessons(b); return req.length && req.every((id) => completed.has(id)); });
   const worldsCleared = exams.rows.length;
   const claimed = new Set(claims.rows.map((r) => `${r.quest_id}|${r.period_key}`));
   const claimedStory = new Set(claims.rows.filter((r) => r.period_key === 'story').map((r) => r.quest_id));
-  const worlds = unlockedWorlds({ passedExams: new Set(exams.rows.map((r) => r.unit_id)) });
+  const worlds = admin ? [1, 2, 3, 4] : unlockedWorlds({ passedExams: new Set(exams.rows.map((r) => r.unit_id)) });
   const { effects } = computeStats(eq.rows.map((r) => r.item_id));
   // Gear with a "coin_bonus" effect pays more for quests (capped at +25%).
   const coinBonus = Math.min(25, effects.filter((e) => e.type === 'coin_bonus').reduce((s, e) => s + (e.value || 0), 0));
@@ -56,7 +57,7 @@ async function board(db, userId) {
 // GET /api/quests
 router.get('/', async (req, res, next) => {
   try {
-    const b = await board({ query }, req.user.userId);
+    const b = await board({ query }, req.user.userId, isAdmin(req));
     delete b._keyFor;
     res.json(b);
   } catch (err) {
@@ -71,7 +72,7 @@ router.post('/:id/claim', async (req, res, next) => {
     if (!quest) return res.status(404).json({ error: 'No such quest' });
     const out = await withTransaction(async (db) => {
       await db.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [req.user.userId]);
-      const b = await board(db, req.user.userId);
+      const b = await board(db, req.user.userId, isAdmin(req));
       const entry = [...b.daily, ...b.weekly, ...b.story].find((q) => q.id === quest.id);
       if (!entry) return { status: 400, error: "That quest isn't on your board right now" };
       if (entry.claimed) return { status: 400, error: 'Already claimed' };
@@ -93,7 +94,7 @@ router.post('/:id/claim', async (req, res, next) => {
         );
         if (ins.rows.length) item = entry.reward.item;
       }
-      const after = await board(db, req.user.userId);
+      const after = await board(db, req.user.userId, isAdmin(req));
       delete after._keyFor;
       const coins = (await db.query('SELECT coins FROM users WHERE id = $1', [req.user.userId])).rows[0].coins;
       return { claimed: { id: quest.id, coins: entry.reward.coins, item }, board: after, coins };

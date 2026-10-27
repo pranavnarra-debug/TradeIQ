@@ -12,7 +12,8 @@
     "db:local": "node scripts/db-local.js",
     "validate-content": "node scripts/validate-content.js",
     "test": "node --test test/*.test.js",
-    "curriculum": "node scripts/build-curriculum.js"
+    "curriculum": "node scripts/build-curriculum.js",
+    "simulate": "node scripts/simulate.js"
   },
   "engines": {
     "node": "22.x"

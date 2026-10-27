@@ -25,6 +25,15 @@ export function isAdminRow(row) {
   return ids.has(Number(row.id));
 }
 
+/**
+ * Gameplay perks for the site owner (everything unlocked, free gear). Uses the
+ * role in the signed access token, which is only 'admin' when isAdminRow()
+ * passed at login, so it carries the same allowlist guarantee.
+ */
+export function isAdmin(req) {
+  return req.user?.role === 'admin';
+}
+
 export function allowlistedIds() {
   return [...ids];
 }

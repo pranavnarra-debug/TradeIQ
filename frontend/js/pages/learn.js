@@ -63,7 +63,7 @@ const Learn = (() => {
     const ids = unit.chapters.flatMap((c) => c.lessons.map((l) => l.id));
     const doneCount = ids.filter((id) => comp[id]).length;
     const exam = prog?.unitExams?.[unit.id];
-    const examOpen = prog && doneCount === ids.length;
+    const examOpen = prog && (doneCount === ids.length || Session.user?.role === 'admin');
     return `<section class="unit" style="--c:${unit.color}" id="unit-${unit.id}">
       <div class="unit-banner">${Sprites.character(unit.sprite, 72)}
         <div><span class="px-label">World ${unit.number} · ${escapeHtml(unit.world)}</span><h2>${escapeHtml(unit.title)}</h2><p>${escapeHtml(unit.subtitle)}</p></div>

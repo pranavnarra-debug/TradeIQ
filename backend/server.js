@@ -76,14 +76,17 @@ app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 
 // --- Rate limiting ---
-const limiter = (windowMin, max, message, keyGenerator) => rateLimit({
+// The player simulator (scripts/simulate.js) sends thousands of requests from
+// one machine. SIM_NO_RATE_LIMIT turns limits off, but never in production.
+const noLimits = !config.isProd && process.env.SIM_NO_RATE_LIMIT === '1';
+const limiter = (windowMin, max, message, keyGenerator) => (noLimits ? (req, res, next) => next() : rateLimit({
   windowMs: windowMin * 60 * 1000,
   max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: message },
   ...(keyGenerator ? { keyGenerator } : {}),
-});
+}));
 
 const ipKey = (req) => rateLimit.ipKeyGenerator ? rateLimit.ipKeyGenerator(req.ip) : req.ip;
 // Per IP+username, so one attacker can't burn through guesses on one account

@@ -1,6 +1,7 @@
 // The signed-in user's own account: profile, preferences, email, password,
 // recovery code, data export and account deletion.
 import express from 'express';
+import { isAdmin } from '../services/adminAccess.js';
 import bcrypt from 'bcrypt';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate } from '../middleware/auth.js';
@@ -171,16 +172,17 @@ router.post('/shop', async (req, res, next) => {
     if (!offer) return res.status(400).json({ error: 'Unknown item' });
     const result = await withTransaction(async (db) => {
       const u = (await db.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [req.user.userId])).rows[0];
-      if (u.coins < offer.cost) return { error: `You need ${offer.cost - u.coins} more coins` };
+      const cost = isAdmin(req) ? 0 : offer.cost;
+      if (u.coins < cost) return { error: `You need ${cost - u.coins} more coins` };
       if (item === 'streak_freeze') {
         if (u.streak_freezes >= offer.max) return { error: `You can hold at most ${offer.max} freezes` };
-        await db.query('UPDATE users SET coins = coins - $1, streak_freezes = streak_freezes + 1 WHERE id = $2', [offer.cost, u.id]);
+        await db.query('UPDATE users SET coins = coins - $1, streak_freezes = streak_freezes + 1 WHERE id = $2', [cost, u.id]);
       } else {
         const avatar = item.split(':')[1];
         if ((u.owned_avatars || []).includes(avatar)) return { error: 'Already unlocked' };
         await db.query(
           'UPDATE users SET coins = coins - $1, owned_avatars = array_append(owned_avatars, $2) WHERE id = $3',
-          [offer.cost, avatar, u.id]
+          [cost, avatar, u.id]
         );
       }
       return { user: (await db.query('SELECT * FROM users WHERE id = $1', [u.id])).rows[0] };

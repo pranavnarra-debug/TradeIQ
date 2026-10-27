@@ -2,6 +2,7 @@
 // visitors can browse the course map; lesson bodies, grading and exams need
 // an account.
 import express from 'express';
+import { isAdmin } from '../services/adminAccess.js';
 import crypto from 'crypto';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate } from '../middleware/auth.js';
@@ -198,7 +199,7 @@ router.get('/exam/:unitId', async (req, res, next) => {
       'SELECT COUNT(*)::int AS n FROM lesson_completions WHERE user_id = $1 AND unit_id = $2',
       [req.user.userId, unit.id]
     );
-    if (done.rows[0].n < ids.length) {
+    if (done.rows[0].n < ids.length && !isAdmin(req)) {
       return res.status(403).json({ error: `Finish all ${ids.length} lessons in ${unit.title} to unlock the exam (${done.rows[0].n} done).`, code: 'EXAM_LOCKED' });
     }
     const pool = bossPool(unit.id);
